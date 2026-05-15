@@ -126,18 +126,19 @@
 </div>
 
 <script>
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ═══════════════════════════════════════════════════════════
 // CONFIGURATION - Replace with your values
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ═══════════════════════════════════════════════════════════
 const SMARTSHEET_TOKEN = 'wHhHUGPB1QAQOk1PMPRalbdmUVLxmK47NNlQN';  // ASI Smartsheet API token
 const SHEET_ID = '2286122141962116';
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ═══════════════════════════════════════════════════════════
 
 const msMap = {"2026-07-01":"dry-run","2026-07-06":"dry-run","2026-07-08":"dry-run","2026-07-09":"pre-demo","2026-07-10":"demo-day"};
 const msLabels = {"2026-07-01":"Dry run 1","2026-07-06":"Dry run","2026-07-08":"Dry run","2026-07-09":"Pre-d","2026-07-10":"Demo day"};
 const msColors = {"dry-run":"#F5A623","pre-demo":"#7ED321","demo-day":"#E74C3C"};
 const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
+// DIV_MAP: keys are ASCII-only (dashes stripped) for encoding-safe matching
 const DIV_MAP = {
   "autonomous services": "Autonomous Services",
   "asi leadership": "ASI Leadership",
@@ -148,31 +149,36 @@ const DIV_MAP = {
   "rs validation": "RS Validation",
   "v&v": "V&V",
   "marketing": "Marketing",
-  "mass grading â aoz 2": "Mass Grading â AOZ 2",
-  "mass grading â aoz 2": "Mass Grading â AOZ 2",
-  "clearing & grubbing â aoz 1": "Clearing & Grubbing â AOZ 1",
-  "clearing & grubbing â aoz 1": "Clearing & Grubbing â AOZ 1",
-  "haulage â aoz 3": "Haulage â AOZ 3",
-  "haulage â aoz 3": "Haulage â AOZ 3",
-  "material handling â aoz 4": "Material Handling â AOZ 4",
-  "material handling â aoz 4": "Material Handling â AOZ 4"
+  "aoz leads": "AOZ Leads",
+  "mobius platform": "Mobius Platform",
+  "mass grading aoz 2": "Mass Grading \u2014 AOZ 2",
+  "clearing & grubbing aoz 1": "Clearing & Grubbing \u2014 AOZ 1",
+  "haulage aoz 3": "Haulage \u2014 AOZ 3",
+  "material handling aoz 4": "Material Handling \u2014 AOZ 4"
 };
-const divOrder = ["Autonomous Services","ASI Leadership","AG (ASI)","C4","Site Operations","RS Mechatronics","RS Validation","V&V","Marketing","Clearing & Grubbing â AOZ 1","Mass Grading â AOZ 2","Haulage â AOZ 3","Material Handling â AOZ 4"];
+const divOrder = ["Autonomous Services","ASI Leadership","AOZ Leads","AG (ASI)","C4","Site Operations","RS Mechatronics","RS Validation","V&V","Marketing","Mobius Platform","Clearing & Grubbing \u2014 AOZ 1","Mass Grading \u2014 AOZ 2","Haulage \u2014 AOZ 3","Material Handling \u2014 AOZ 4"];
+
+// Strip all dash-like chars (em-dash, en-dash, hyphen, and mojibaked UTF-8 bytes) for safe comparison
+function stripDashes(s) {
+  return s.replace(/[\u2014\u2013\u2012\u2011\u2010\-\u00E2\u0080\u0094]/g, '').replace(/\s+/g, ' ').trim();
+}
 
 function normDiv(raw) {
   if (!raw) return null;
   const trimmed = raw.trim();
-  // Normalize dashes (em-dash, en-dash, hyphen)
-  const norm = trimmed.replace(/[ââ]/g, 'â').toLowerCase();
+  const norm = stripDashes(trimmed).toLowerCase();
+  // Direct key match
   if (DIV_MAP[norm]) return DIV_MAP[norm];
+  // Check each key with stripped comparison
   for (const [k, v] of Object.entries(DIV_MAP)) {
-    if (norm.includes(k) || k.includes(norm)) return v;
+    if (norm === k || norm.includes(k) || k.includes(norm)) return v;
   }
-  // Direct match against divOrder (case-sensitive)
-  if (divOrder.includes(trimmed)) return trimmed;
-  // Try divOrder case-insensitive
-  const found = divOrder.find(d => d.toLowerCase() === norm);
+  // Try divOrder display names (stripped + lowercased)
+  const found = divOrder.find(d => stripDashes(d).toLowerCase() === norm);
   if (found) return found;
+  // Fallback: partial match on divOrder
+  const partial = divOrder.find(d => norm.includes(stripDashes(d).toLowerCase()) || stripDashes(d).toLowerCase().includes(norm));
+  if (partial) return partial;
   return null;
 }
 
@@ -227,7 +233,9 @@ async function fetchSheet() {
       });
 
       const name = cells['Name'];
-      if (!name || name.trim().toUpperCase() === 'TBD' || name.trim() === '') return;
+      if (!name || name.trim() === '') return;
+      const nameUp = name.trim().toUpperCase();
+      if (nameUp === 'TBD' || nameUp === 'NEW HIRE' || nameUp === 'ADT/AWT' || nameUp === 'WHEEL LOADER') return;
       const divRaw = cells['ASI Division'];
       const div = normDiv(divRaw);
       if (!div) return;
