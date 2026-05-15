@@ -15,7 +15,7 @@
   .load-status { font-size: 12px; color: #aaa; }
   .error-view { color: #D32F2F; padding: 32px; font-size: 14px; line-height: 1.6; }
   .error-view pre { background: #f5f5f5; padding: 12px; border-radius: 4px; font-size: 11px; margin-top: 12px; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow: auto; }
-  .error-view .setup-note { color: #555; margin-top: 16px; padding: 16px; background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 13px; }
+  .error-view .setup-note { color: #555; margin-top: 16px; padding: 16px; backgrond: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 13px; }
   .error-view code { background: #eee; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
 
   .page { display: flex; flex-direction: column; height: 100vh; }
@@ -194,9 +194,11 @@ async function fetchSheet() {
 
   try {
     setStatus('Fetching sheet data...');
-    const resp = await fetch('https://api.smartsheet.com/2.0/sheets/' + SHEET_ID, {
-      headers: { 'Authorization': 'Bearer ' + SMARTSHEET_TOKEN }
-    });
+    const apiUrl = 'https://api.smartsheet.com/2.0/sheets/' + SHEET_ID;
+       const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(apiUrl);
+       const resp = await fetch(proxyUrl, {
+              headers: { 'Authorization': 'Bearer ' + SMARTSHEET_TOKEN }
+       });
 
     if (!resp.ok) {
       const errText = await resp.text();
