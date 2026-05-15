@@ -59,7 +59,8 @@
   .gantt-table { border-collapse: collapse; width: 100%; table-layout: fixed; }
 
   .col-name { position: sticky; left: 0; z-index: 3; background: #fff; width: 150px; min-width: 150px; max-width: 150px; padding: 0 10px; font-size: 12px; border-bottom: 1px solid #eee; border-right: 1px solid #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .col-name.div-header { font-weight: 700; font-size: 13px; color: #111; border-bottom: 1px solid #ccc; background: #e8e8e8; }
+  .col-name.div-header { font-weight: 700; font-size: 13px; color: #111; border-bottom: 1px solid #ccc; background: #e8e8e8; border-top: 3px solid #999; }
+  .gc.div-bg { border-top: 3px solid #999; }
 
   .gantt-table thead th { position: sticky; top: 0; z-index: 5; background: #fff; }
   .gantt-table thead th.col-name { z-index: 6; }
@@ -235,7 +236,7 @@ async function fetchSheet() {
       const name = cells['Name'];
       if (!name || name.trim() === '') return;
       const nameUp = name.trim().toUpperCase();
-      if (nameUp === 'TBD' || nameUp === 'NEW HIRE' || nameUp === 'ADT/AWT' || nameUp === 'WHEEL LOADER') return;
+      if (nameUp === 'NEW HIRE' || nameUp === 'ADT/AWT' || nameUp === 'WHEEL LOADER') return;
       const divRaw = cells['ASI Division'];
       const div = normDiv(divRaw);
       if (!div) return;
@@ -252,13 +253,11 @@ async function fetchSheet() {
           }
         }
       }
-      if (datePairs.length > 0) {
-        people.push({ name, div, dates: datePairs });
-      }
+      people.push({ name, div, dates: datePairs });
     });
 
     if (people.length === 0) {
-      showError('Parsed sheet but found 0 people with dates. Sheet has ' + sheet.rows.length + ' rows and ' + sheet.columns.length + ' columns.');
+      showError('Parsed sheet but found 0 people. Sheet has ' + sheet.rows.length + ' rows and ' + sheet.columns.length + ' columns.');
       return;
     }
 
@@ -271,12 +270,14 @@ async function fetchSheet() {
 }
 
 function render(people) {
-  // Compute date range
+  // Compute date range (only from people who have dates)
   let minDate = '9999-99-99', maxDate = '0000-00-00';
   people.forEach(p => p.dates.forEach(([s, e]) => {
     if (s < minDate) minDate = s;
     if (e > maxDate) maxDate = e;
   }));
+  // If nobody has dates, use a default range
+  if (minDate === '9999-99-99') { minDate = '2026-06-01'; maxDate = '2026-07-11'; }
 
   const startDate = new Date(minDate + 'T12:00:00');
   const endDate = new Date(maxDate + 'T12:00:00');
