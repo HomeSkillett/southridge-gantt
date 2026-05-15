@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Southridge Demo - Onsite Calendar (Live)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #333; background: #fff; }
+
+  .loading { display: flex; align-items: center; justify-content: center; height: 100vh; flex-direction: column; gap: 12px; color: #888; }
+  .spinner { width: 32px; height: 32px; border: 3px solid #e0e0e0; border-top-color: #2CA8DC; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .load-status { font-size: 12px; color: #aaa; }
+  .error-view { color: #D32F2F; padding: 32px; font-size: 14px; line-height: 1.6; }
+  .error-view pre { background: #f5f5f5; padding: 12px; border-radius: 4px; font-size: 11px; margin-top: 12px; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow: auto; }
+  .error-view .setup-note { color: #555; margin-top: 16px; padding: 16px; background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 13px; }
+  .error-view code { background: #eee; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+
+  .page { display: flex; flex-direction: column; height: 100vh; }
+  .top-section { flex-shrink: 0; padding: 20px 28px 0 28px; }
+  .refresh-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .refresh-bar .title { font-size: 16px; font-weight: 700; color: #222; }
+  .refresh-bar .meta { font-size: 11px; color: #999; display: flex; gap: 16px; align-items: center; }
+  .refresh-btn { background: #2CA8DC; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500; }
+  .refresh-btn:hover { background: #2597c5; }
+
+  .stats { display: flex; gap: 16px; margin-bottom: 20px; }
+  .stat-card { border: 1px solid #ddd; border-radius: 6px; padding: 12px 18px; flex: 1; }
+  .stat-card .label { font-size: 12px; color: #888; margin-bottom: 2px; }
+  .stat-card .value { font-size: 22px; font-weight: 700; color: #222; line-height: 1.2; }
+
+  .chart-area { position: relative; margin-bottom: 6px; }
+  .chart-wrap { position: relative; height: 160px; padding-left: 28px; }
+  .chart-bars { display: flex; align-items: flex-end; height: 100%; gap: 2px; }
+  .chart-col { flex: 1; position: relative; cursor: pointer; height: 100%; display: flex; align-items: flex-end; }
+  .chart-col .bar { width: 100%; border-radius: 2px 2px 0 0; min-height: 1px; }
+  .chart-col:hover .bar { filter: brightness(0.85); }
+
+  .chart-tooltip { display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 6px 10px; border-radius: 5px; font-size: 11px; white-space: nowrap; z-index: 100; pointer-events: none; margin-bottom: 8px; }
+  .chart-tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: #333; }
+  .chart-col:hover .chart-tooltip { display: block; }
+  .tt-date { font-weight: 600; margin-bottom: 2px; }
+  .tt-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+
+  .y-axis { position: absolute; left: 0; top: 0; bottom: 0; width: 26px; }
+  .y-label { position: absolute; right: 4px; font-size: 10px; color: #999; transform: translateY(-50%); }
+  .y-grid { position: absolute; left: 28px; right: 0; border-top: 1px solid #f0f0f0; }
+
+  .x-axis { display: flex; gap: 2px; padding-left: 28px; border-top: 1px solid #ddd; margin-bottom: 8px; }
+  .x-label { flex: 1; text-align: center; font-size: 9px; color: #999; padding-top: 4px; line-height: 1.2; }
+
+  .legend { display: flex; gap: 20px; margin: 10px 0 16px 0; align-items: center; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #555; }
+  .legend-dot { width: 14px; height: 14px; border-radius: 3px; }
+
+  .gantt-scroll { flex: 1; overflow: auto; padding: 0; }
+  .gantt-table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+
+  .col-name { position: sticky; left: 0; z-index: 3; background: #fff; width: 150px; min-width: 150px; max-width: 150px; padding: 0 10px; font-size: 12px; border-bottom: 1px solid #eee; border-right: 1px solid #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .col-name.div-header { font-weight: 700; font-size: 13px; color: #111; border-bottom: 1px solid #ccc; background: #e8e8e8; }
+
+  .gantt-table thead th { position: sticky; top: 0; z-index: 5; background: #fff; }
+  .gantt-table thead th.col-name { z-index: 6; }
+  .th-month { text-align: left; font-size: 11px; font-weight: 600; color: #555; padding: 4px 4px 2px; border-bottom: 1px solid #ddd; }
+  .th-day { text-align: center; font-size: 10px; color: #777; padding: 2px 0; border-bottom: 1px solid #ddd; font-weight: 500; }
+  .th-day.we { color: #ccc; background: #fafafa; }
+  .th-milestone { text-align: center; font-size: 8px; font-weight: 600; padding: 1px 0 3px; border-bottom: 2px solid #ddd; height: 16px; white-space: nowrap; overflow: hidden; }
+  .th-milestone.dry { color: #E8880C; }
+  .th-milestone.pre { color: #5B9E1B; }
+  .th-milestone.demo { color: #D32F2F; }
+
+  .gc { padding: 0; position: relative; border-bottom: 1px solid #f3f3f3; height: 24px; }
+  .gc.we { background: #fafafc; }
+  .gc.ms { border-left: 1px dashed #ddd; }
+  .gc.div-bg { background: #e8e8e8 !important; border-bottom: 1px solid #ccc; }
+
+  .gb { position: absolute; top: 4px; bottom: 4px; left: 0; right: 0; }
+  .gb.onsite { background: #2CA8DC; }
+  .gb.dry-run { background: #F5A623; }
+  .gb.pre-demo { background: #7ED321; }
+  .gb.demo-day { background: #E74C3C; }
+  .gb.r-start { left: 2px; border-radius: 3px 0 0 3px; }
+  .gb.r-end { right: 2px; border-radius: 0 3px 3px 0; }
+  .gb.r-single { left: 2px; right: 2px; border-radius: 3px; }
+
+  .gantt-table tbody tr:hover td { background: #f0f7ff; }
+  .gantt-table tbody tr:hover .col-name { background: #f0f7ff; }
+  .gantt-table tbody tr:hover .gc.we { background: #e8f0fa; }
+
+  @media print { .page { height: auto; overflow: visible; } .gantt-scroll { overflow: visible; } }
+</style>
+</head>
+<body>
+
+<div id="loadingView" class="loading">
+  <div class="spinner"></div>
+  <div>Loading live data from Smartsheet...</div>
+  <div class="load-status" id="loadStatus"></div>
+</div>
+
+<div id="mainView" style="display:none;">
+<div class="page">
+<div class="top-section">
+  <div class="refresh-bar">
+    <span class="title">Southridge Demo - Onsite Calendar</span>
+    <span class="meta">
+      <span id="lastUpdated"></span>
+      <button class="refresh-btn" onclick="location.reload()">Refresh</button>
+    </span>
+  </div>
+  <div class="stats" id="statsArea"></div>
+  <div class="chart-area" id="chartArea"></div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#2CA8DC"></div>On-site</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#F5A623"></div>Dry run</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#7ED321"></div>Pre-demo prep</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#E74C3C"></div>Demo day</div>
+  </div>
+</div>
+<div class="gantt-scroll">
+  <table class="gantt-table" id="ganttTable"></table>
+</div>
+</div>
+</div>
+
+<script>
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// CONFIGURATION - Replace with your values
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+const SMARTSHEET_TOKEN = 'wHhHUGPB1QAQOk1PMPRalbdmUVLxmK47NNlQN';  // ASI Smartsheet API token
+const SHEET_ID = '2286122141962116';
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
+const msMap = {"2026-07-01":"dry-run","2026-07-06":"dry-run","2026-07-08":"dry-run","2026-07-09":"pre-demo","2026-07-10":"demo-day"};
+const msLabels = {"2026-07-01":"Dry run 1","2026-07-06":"Dry run","2026-07-08":"Dry run","2026-07-09":"Pre-d","2026-07-10":"Demo day"};
+const msColors = {"dry-run":"#F5A623","pre-demo":"#7ED321","demo-day":"#E74C3C"};
+const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+const DIV_MAP = {
+  "grading/road construction": "Grading/Road",
+  "mass grading": "Mass Grading",
+  "mass grading â aoz 2": "Mass Grading",
+  "mass grading \\u2014 aoz 2": "Mass Grading",
+  "mobius platform": "Mobius",
+  "rs mechatronics": "RS Mechatronics",
+  "material handling": "Material Handling",
+  "rs validation": "RS Validation",
+  "rs v&v": "RS V&V",
+  "reach stackers": "Reach Stackers",
+  "c4": "C4",
+  "ag (asi)": "AG (ASI)",
+  "site ops": "Site Ops",
+  "infrastructure": "Infrastructure",
+  "infrastructure & technical": "Infrastructure",
+  "autonomous services": "Site Ops",
+  "aoz leads": "Site Ops",
+  "haulage â aoz 3": "Haulage",
+  "haulage \\u2014 aoz 3": "Haulage"
+};
+const divOrder = ["Site Ops","AG (ASI)","C4","Infrastructure","Mobius","RS Validation","Mass Grading","RS Mechatronics","Material Handling","RS V&V","Reach Stackers","Haulage","Grading/Road"];
+
+function normDiv(raw) {
+  if (!raw) return null;
+  const lower = raw.trim().toLowerCase();
+  if (DIV_MAP[lower]) return DIV_MAP[lower];
+  for (const [k, v] of Object.entries(DIV_MAP)) {
+    if (lower.includes(k) || k.includes(lower)) return v;
+  }
+  if (divOrder.includes(raw.trim())) return raw.trim();
+  return null;
+}
+
+function barColor(ds) { return msColors[msMap[ds]] || '#2CA8DC'; }
+function fmtDate(ds) { const d = new Date(ds + 'T12:00:00'); return MN[d.getMonth()] + ' ' + d.getDate(); }
+function setStatus(msg) { document.getElementById('loadStatus').textContent = msg; }
+
+function showError(msg, detail) {
+  let html = '<div class="error-view"><strong>Error:</strong> ' + msg;
+  if (detail) html += '<pre>' + String(detail).slice(0, 1500).replace(/</g, '&lt;') + '</pre>';
+  if (SMARTSHEET_TOKEN === 'YOUR_TOKEN_HERE') {
+    html += '<div class="setup-note"><strong>Setup required:</strong> Open this HTML file in a text editor and replace <code>YOUR_TOKEN_HERE</code> on the line that says <code>const SMARTSHEET_TOKEN</code> with your Smartsheet API access token.<br><br>To get a token: Smartsheet > Account > Personal Settings > API Access > Generate New Access Token</div>';
+  }
+  html += '</div>';
+  document.getElementById('loadingView').innerHTML = html;
+}
+
+async function fetchSheet() {
+  if (SMARTSHEET_TOKEN === 'YOUR_TOKEN_HERE') {
+    showError('No API token configured.');
+    return;
+  }
+
+  try {
+    setStatus('Fetching sheet data...');
+    const resp = await fetch('https://api.smartsheet.com/2.0/sheets/' + SHEET_ID, {
+      headers: { 'Authorization': 'Bearer ' + SMARTSHEET_TOKEN }
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      showError('Smartsheet API returned ' + resp.status + ' ' + resp.statusText, errText);
+      return;
+    }
+
+    setStatus('Parsing response...');
+    const sheet = await resp.json();
+
+    // Build column ID -> name lookup
+    const colMap = {};
+    sheet.columns.forEach(c => { colMap[c.id] = c.title; });
+
+    // Parse rows
+    const people = [];
+    const dateCols = ['Arrival Date', 'Departure Date', 'Arrival Date 2', 'Departure Date 2',
+                      'Arrival Date 3', 'Departure Date 3', 'Arrival Date 4', 'Departure Date 4'];
+
+    sheet.rows.forEach(row => {
+      const cells = {};
+      row.cells.forEach(cell => {
+        const colName = colMap[cell.columnId];
+        if (colName) cells[colName] = cell.value || cell.displayValue || null;
+      });
+
+      const name = cells['Name'];
+      const divRaw = cells['ASI Division'];
+      const div = normDiv(divRaw);
+      if (!name || !div) return;
+
+      const datePairs = [];
+      for (let i = 0; i < 4; i++) {
+        const suffix = i === 0 ? '' : ' ' + (i + 1);
+        const arr = cells['Arrival Date' + suffix];
+        const dep = cells['Departure Date' + suffix];
+        if (arr && dep) {
+          const a = String(arr).slice(0, 10);
+          const d = String(dep).slice(0, 10);
+          if (a.match(/^\d{4}-\d{2}-\d{2}/) && d.match(/^\d{4}-\d{2}-\d{2}/)) {
+            datePairs.push([a, d]);
+          }
+        }
+      }
+      if (datePairs.length > 0) {
+        people.push({ name, div, dates: datePairs });
+      }
+    });
+
+    if (people.length === 0) {
+      showError('Parsed sheet but found 0 people with dates. Sheet has ' + sheet.rows.length + ' rows and ' + sheet.columns.length + ' columns.');
+      return;
+    }
+
+    setStatus('Rendering ' + people.length + ' entries...');
+    render(people);
+
+  } catch (err) {
+    showError(err.message, err.stack);
+  }
+}
+
+function render(people) {
+  // Compute date range
+  let minDate = '9999-99-99', maxDate = '0000-00-00';
+  people.forEach(p => p.dates.forEach(([s, e]) => {
+    if (s < minDate) minDate = s;
+    if (e > maxDate) maxDate = e;
+  }));
+
+  const startDate = new Date(minDate + 'T12:00:00');
+  const endDate = new Date(maxDate + 'T12:00:00');
+  const dates = [], dateStrs = [], dateIdx = {};
+  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) dates.push(new Date(d));
+  dates.forEach((d, i) => { const s = d.toISOString().slice(0, 10); dateStrs.push(s); dateIdx[s] = i; });
+  const N = dates.length;
+
+  // Daily headcounts
+  const dailyCounts = {};
+  dateStrs.forEach(ds => dailyCounts[ds] = 0);
+  people.forEach(p => p.dates.forEach(([s, e]) => {
+    const si = dateIdx[s], ei = dateIdx[e];
+    if (si !== undefined && ei !== undefined) for (let k = si; k <= ei; k++) dailyCounts[dateStrs[k]]++;
+  }));
+
+  const uniqueNames = new Set();
+  people.forEach(p => uniqueNames.add(p.name));
+  const peakCount = Math.max(...Object.values(dailyCounts));
+
+  // Stats
+  document.getElementById('statsArea').innerHTML =
+    '<div class="stat-card"><div class="label">People</div><div class="value">' + uniqueNames.size + '</div></div>' +
+    '<div class="stat-card"><div class="label">Date span</div><div class="value">' + fmtDate(minDate) + ' - ' + fmtDate(maxDate) + '</div></div>' +
+    '<div class="stat-card"><div class="label">Dry runs</div><div class="value">Jul 1st, 6th, and 8th</div></div>' +
+    '<div class="stat-card"><div class="label">Demo day</div><div class="value">Jul 10</div></div>';
+
+  // Last updated timestamp
+  const now = new Date();
+  document.getElementById('lastUpdated').textContent = 'Updated: ' + now.toLocaleString();
+
+  // Bar chart
+  const maxY = Math.ceil(peakCount / 5) * 5 + 5;
+  let ch = '<div class="chart-wrap"><div class="y-axis">';
+  for (let v = 0; v <= maxY; v += 5) { const pct = ((maxY - v) / maxY) * 100; ch += '<span class="y-label" style="top:' + pct + '%">' + v + '</span>'; }
+  ch += '</div>';
+  for (let v = 0; v <= maxY; v += 5) { const pct = ((maxY - v) / maxY) * 100; ch += '<div class="y-grid" style="top:' + pct + '%"></div>'; }
+  ch += '<div class="chart-bars">';
+  dateStrs.forEach(ds => {
+    const c = dailyCounts[ds] || 0;
+    const pct = (c / maxY) * 100;
+    const col = barColor(ds);
+    const mt = msMap[ds];
+    const typeLabel = mt === 'dry-run' ? 'Dry run' : mt === 'pre-demo' ? 'Pre-demo prep' : mt === 'demo-day' ? 'Demo day' : 'People on-site';
+    ch += '<div class="chart-col"><div class="bar" style="height:' + pct + '%;background:' + col + '"></div>';
+    ch += '<div class="chart-tooltip"><div class="tt-date">' + fmtDate(ds) + '</div><span class="tt-dot" style="background:' + col + '"></span>' + typeLabel + ': ' + c + '</div></div>';
+  });
+  ch += '</div></div>';
+  ch += '<div class="x-axis">';
+  dateStrs.forEach((ds, i) => {
+    const d = dates[i]; const day = d.getDate();
+    let label = '';
+    if (day === 1) label = MN[d.getMonth()] + '<br>' + day;
+    else if (i % 2 === 0) label = '' + day;
+    ch += '<div class="x-label">' + label + '</div>';
+  });
+  ch += '</div>';
+  document.getElementById('chartArea').innerHTML = ch;
+
+  // Gantt table
+  const divGroups = {};
+  divOrder.forEach(d => divGroups[d] = []);
+  people.forEach(p => { if (p.div && divGroups[p.div]) divGroups[p.div].push(p); });
+
+  const mSpans = []; let cm = -1;
+  dates.forEach(d => { const m = d.getMonth(); if (m !== cm) { mSpans.push({ l: MN[m] + ' ' + d.getFullYear(), n: 1 }); cm = m; } else mSpans[mSpans.length - 1].n++; });
+
+  let t = '<colgroup><col style="width:150px;min-width:150px;">';
+  for (let i = 0; i < N; i++) t += '<col>';
+  t += '</colgroup><thead>';
+  t += '<tr><th class="col-name" rowspan="3" style="border-bottom:2px solid #ddd;"></th>';
+  mSpans.forEach(ms => t += '<th class="th-month" colspan="' + ms.n + '">' + ms.l + '</th>');
+  t += '</tr><tr>';
+  dates.forEach(d => { const we = d.getDay() === 0 || d.getDay() === 6; t += '<th class="th-day' + (we ? ' we' : '') + '">' + d.getDate() + '</th>'; });
+  t += '</tr><tr>';
+  dateStrs.forEach(ds => {
+    const ml = msLabels[ds]; const mt = msMap[ds];
+    let cls = 'th-milestone';
+    if (mt === 'dry-run') cls += ' dry'; else if (mt === 'pre-demo') cls += ' pre'; else if (mt === 'demo-day') cls += ' demo';
+    t += '<th class="' + cls + '">' + (ml || '') + '</th>';
+  });
+  t += '</tr></thead><tbody>';
+
+  function rowCells(dateRanges) {
+    const active = new Set();
+    dateRanges.forEach(([s, e]) => {
+      const si = dateIdx[s], ei = dateIdx[e];
+      if (si !== undefined && ei !== undefined) for (let k = si; k <= ei; k++) active.add(k);
+    });
+    const ranges = []; let rs = null;
+    for (let i = 0; i < N; i++) { if (active.has(i)) { if (rs === null) rs = i; } else { if (rs !== null) { ranges.push([rs, i - 1]); rs = null; } } }
+    if (rs !== null) ranges.push([rs, N - 1]);
+    const pos = {};
+    ranges.forEach(([s, e]) => { for (let i = s; i <= e; i++) { if (s === e) pos[i] = 'single'; else if (i === s) pos[i] = 'start'; else if (i === e) pos[i] = 'end'; else pos[i] = 'mid'; } });
+
+    return dateStrs.map((ds, i) => {
+      const d = dates[i]; const we = d.getDay() === 0 || d.getDay() === 6; const isMs = !!msMap[ds];
+      let cls = 'gc'; if (we) cls += ' we'; if (isMs) cls += ' ms';
+      let inner = '';
+      if (pos[i] !== undefined) {
+        let colorCls = 'onsite';
+        if (msMap[ds] === 'dry-run') colorCls = 'dry-run';
+        else if (msMap[ds] === 'pre-demo') colorCls = 'pre-demo';
+        else if (msMap[ds] === 'demo-day') colorCls = 'demo-day';
+        let shape = '';
+        if (pos[i] === 'start') shape = ' r-start';
+        else if (pos[i] === 'end') shape = ' r-end';
+        else if (pos[i] === 'single') shape = ' r-single';
+        inner = '<div class="gb ' + colorCls + shape + '"></div>';
+      }
+      return '<td class="' + cls + '">' + inner + '</td>';
+    }).join('');
+  }
+
+  function divRow() { return dateStrs.map(() => '<td class="gc div-bg"></td>').join(''); }
+
+  divOrder.forEach(divName => {
+    const ppl = divGroups[divName];
+    if (!ppl.length) return;
+    t += '<tr><td class="col-name div-header">' + divName + ' (' + ppl.length + ')</td>' + divRow() + '</tr>';
+    ppl.sort((a, b) => a.name.localeCompare(b.name));
+    ppl.forEach(p => { t += '<tr><td class="col-name" title="' + p.name + '">' + p.name + '</td>' + rowCells(p.dates) + '</tr>'; });
+  });
+  t += '</tbody>';
+  document.getElementById('ganttTable').innerHTML = t;
+
+  document.getElementById('loadingView').style.display = 'none';
+  document.getElementById('mainView').style.display = 'block';
+}
+
+fetchSheet();
+</script>
+</body>
+</html>
