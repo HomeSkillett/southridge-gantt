@@ -126,12 +126,12 @@
 </div>
 
 <script>
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ═══════════════════════════════════════════════════════════
 // CONFIGURATION - Replace with your values
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ═══════════════════════════════════════════════════════════
 const SMARTSHEET_TOKEN = 'wHhHUGPB1QAQOk1PMPRalbdmUVLxmK47NNlQN';  // ASI Smartsheet API token
 const SHEET_ID = '2286122141962116';
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ═══════════════════════════════════════════════════════════
 
 const msMap = {"2026-07-01":"dry-run","2026-07-06":"dry-run","2026-07-08":"dry-run","2026-07-09":"pre-demo","2026-07-10":"demo-day"};
 const msLabels = {"2026-07-01":"Dry run 1","2026-07-06":"Dry run","2026-07-08":"Dry run","2026-07-09":"Pre-d","2026-07-10":"Demo day"};
@@ -148,22 +148,22 @@ const DIV_MAP = {
   "rs validation": "RS Validation",
   "v&v": "V&V",
   "marketing": "Marketing",
-  "mass grading â aoz 2": "Mass Grading â AOZ 2",
-  "mass grading â aoz 2": "Mass Grading â AOZ 2",
-  "clearing & grubbing â aoz 1": "Clearing & Grubbing â AOZ 1",
-  "clearing & grubbing â aoz 1": "Clearing & Grubbing â AOZ 1",
-  "haulage â aoz 3": "Haulage â AOZ 3",
-  "haulage â aoz 3": "Haulage â AOZ 3",
-  "material handling â aoz 4": "Material Handling â AOZ 4",
-  "material handling â aoz 4": "Material Handling â AOZ 4"
+  "mass grading — aoz 2": "Mass Grading — AOZ 2",
+  "mass grading — aoz 2": "Mass Grading — AOZ 2",
+  "clearing & grubbing — aoz 1": "Clearing & Grubbing — AOZ 1",
+  "clearing & grubbing — aoz 1": "Clearing & Grubbing — AOZ 1",
+  "haulage — aoz 3": "Haulage — AOZ 3",
+  "haulage — aoz 3": "Haulage — AOZ 3",
+  "material handling — aoz 4": "Material Handling — AOZ 4",
+  "material handling — aoz 4": "Material Handling — AOZ 4"
 };
-const divOrder = ["Autonomous Services","ASI Leadership","AG (ASI)","C4","Site Operations","RS Mechatronics","RS Validation","V&V","Marketing","Clearing & Grubbing â AOZ 1","Mass Grading â AOZ 2","Haulage â AOZ 3","Material Handling â AOZ 4"];
+const divOrder = ["Autonomous Services","ASI Leadership","AG (ASI)","C4","Site Operations","RS Mechatronics","RS Validation","V&V","Marketing","Clearing & Grubbing — AOZ 1","Mass Grading — AOZ 2","Haulage — AOZ 3","Material Handling — AOZ 4"];
 
 function normDiv(raw) {
   if (!raw) return null;
   const trimmed = raw.trim();
   // Normalize dashes (em-dash, en-dash, hyphen)
-  const norm = trimmed.replace(/[ââ]/g, 'â').toLowerCase();
+  const norm = trimmed.replace(/[—–]/g, '—').toLowerCase();
   if (DIV_MAP[norm]) return DIV_MAP[norm];
   for (const [k, v] of Object.entries(DIV_MAP)) {
     if (norm.includes(k) || k.includes(norm)) return v;
