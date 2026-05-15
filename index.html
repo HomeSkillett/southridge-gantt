@@ -15,7 +15,7 @@
   .load-status { font-size: 12px; color: #aaa; }
   .error-view { color: #D32F2F; padding: 32px; font-size: 14px; line-height: 1.6; }
   .error-view pre { background: #f5f5f5; padding: 12px; border-radius: 4px; font-size: 11px; margin-top: 12px; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow: auto; }
-  .error-view .setup-note { color: #555; margin-top: 16px; padding: 16px; backgrond: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 13px; }
+  .error-view .setup-note { color: #555; margin-top: 16px; padding: 16px; background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 13px; }
   .error-view code { background: #eee; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
 
   .page { display: flex; flex-direction: column; height: 100vh; }
@@ -139,36 +139,40 @@ const msColors = {"dry-run":"#F5A623","pre-demo":"#7ED321","demo-day":"#E74C3C"}
 const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 const DIV_MAP = {
-  "grading/road construction": "Grading/Road",
-  "mass grading": "Mass Grading",
-  "mass grading â aoz 2": "Mass Grading",
-  "mass grading \\u2014 aoz 2": "Mass Grading",
-  "mobius platform": "Mobius",
-  "rs mechatronics": "RS Mechatronics",
-  "material handling": "Material Handling",
-  "rs validation": "RS Validation",
-  "rs v&v": "RS V&V",
-  "reach stackers": "Reach Stackers",
+  "autonomous services": "Autonomous Services",
+  "asi leadership": "ASI Leadership",
   "c4": "C4",
   "ag (asi)": "AG (ASI)",
-  "site ops": "Site Ops",
-  "infrastructure": "Infrastructure",
-  "infrastructure & technical": "Infrastructure",
-  "autonomous services": "Site Ops",
-  "aoz leads": "Site Ops",
-  "haulage â aoz 3": "Haulage",
-  "haulage \\u2014 aoz 3": "Haulage"
+  "site operations": "Site Operations",
+  "rs mechatronics": "RS Mechatronics",
+  "rs validation": "RS Validation",
+  "v&v": "V&V",
+  "marketing": "Marketing",
+  "mass grading â aoz 2": "Mass Grading â AOZ 2",
+  "mass grading â aoz 2": "Mass Grading â AOZ 2",
+  "clearing & grubbing â aoz 1": "Clearing & Grubbing â AOZ 1",
+  "clearing & grubbing â aoz 1": "Clearing & Grubbing â AOZ 1",
+  "haulage â aoz 3": "Haulage â AOZ 3",
+  "haulage â aoz 3": "Haulage â AOZ 3",
+  "material handling â aoz 4": "Material Handling â AOZ 4",
+  "material handling â aoz 4": "Material Handling â AOZ 4"
 };
-const divOrder = ["Site Ops","AG (ASI)","C4","Infrastructure","Mobius","RS Validation","Mass Grading","RS Mechatronics","Material Handling","RS V&V","Reach Stackers","Haulage","Grading/Road"];
+const divOrder = ["Autonomous Services","ASI Leadership","AG (ASI)","C4","Site Operations","RS Mechatronics","RS Validation","V&V","Marketing","Clearing & Grubbing â AOZ 1","Mass Grading â AOZ 2","Haulage â AOZ 3","Material Handling â AOZ 4"];
 
 function normDiv(raw) {
   if (!raw) return null;
-  const lower = raw.trim().toLowerCase();
-  if (DIV_MAP[lower]) return DIV_MAP[lower];
+  const trimmed = raw.trim();
+  // Normalize dashes (em-dash, en-dash, hyphen)
+  const norm = trimmed.replace(/[ââ]/g, 'â').toLowerCase();
+  if (DIV_MAP[norm]) return DIV_MAP[norm];
   for (const [k, v] of Object.entries(DIV_MAP)) {
-    if (lower.includes(k) || k.includes(lower)) return v;
+    if (norm.includes(k) || k.includes(norm)) return v;
   }
-  if (divOrder.includes(raw.trim())) return raw.trim();
+  // Direct match against divOrder (case-sensitive)
+  if (divOrder.includes(trimmed)) return trimmed;
+  // Try divOrder case-insensitive
+  const found = divOrder.find(d => d.toLowerCase() === norm);
+  if (found) return found;
   return null;
 }
 
@@ -195,10 +199,10 @@ async function fetchSheet() {
   try {
     setStatus('Fetching sheet data...');
     const apiUrl = 'https://api.smartsheet.com/2.0/sheets/' + SHEET_ID;
-       const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(apiUrl);
-       const resp = await fetch(proxyUrl, {
-              headers: { 'Authorization': 'Bearer ' + SMARTSHEET_TOKEN }
-       });
+    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(apiUrl);
+    const resp = await fetch(proxyUrl, {
+      headers: { 'Authorization': 'Bearer ' + SMARTSHEET_TOKEN }
+    });
 
     if (!resp.ok) {
       const errText = await resp.text();
@@ -215,9 +219,6 @@ async function fetchSheet() {
 
     // Parse rows
     const people = [];
-    const dateCols = ['Arrival Date', 'Departure Date', 'Arrival Date 2', 'Departure Date 2',
-                      'Arrival Date 3', 'Departure Date 3', 'Arrival Date 4', 'Departure Date 4'];
-
     sheet.rows.forEach(row => {
       const cells = {};
       row.cells.forEach(cell => {
@@ -226,15 +227,15 @@ async function fetchSheet() {
       });
 
       const name = cells['Name'];
+      if (!name || name.trim().toUpperCase() === 'TBD' || name.trim() === '') return;
       const divRaw = cells['ASI Division'];
       const div = normDiv(divRaw);
-      if (!name || !div) return;
+      if (!div) return;
 
       const datePairs = [];
-      for (let i = 0; i < 4; i++) {
-        const suffix = i === 0 ? '' : ' ' + (i + 1);
-        const arr = cells['Arrival Date' + suffix];
-        const dep = cells['Departure Date' + suffix];
+      for (let i = 1; i <= 4; i++) {
+        const arr = cells['Arrival Date ' + i];
+        const dep = cells['Departure Date ' + i];
         if (arr && dep) {
           const a = String(arr).slice(0, 10);
           const d = String(dep).slice(0, 10);
