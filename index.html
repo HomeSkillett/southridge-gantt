@@ -72,7 +72,7 @@
   .th-milestone.pre { color: #5B9E1B; }
   .th-milestone.demo { color: #D32F2F; }
 
-  .gc { padding: 0; position: relative; border-bottom: 1px solid #f3f3f3; height: 24px; }
+  .gc { padding: 0; border-bottom: 1px solid #f3f3f3; height: 24px; }  .gc-in { position: relative; height: 24px; width: 100%; }
   .gc.we { background: #fafafc; }
   .gc.ms { border-left: 1px dashed #ddd; }
   .gc.div-bg { background: #e8e8e8 !important; border-bottom: 1px solid #ccc; }
@@ -386,7 +386,7 @@ function render(people) {
         if (pos[i] === 'start') shape = ' r-start';
         else if (pos[i] === 'end') shape = ' r-end';
         else if (pos[i] === 'single') shape = ' r-single';
-        inner = '<div class="gb ' + colorCls + shape + '"></div>';
+        inner = '<div class="gc-in"><div class="gb ' + colorCls + shape + '"></div></div>';
       }
       return '<td class="' + cls + '">' + inner + '</td>';
     }).join('');
