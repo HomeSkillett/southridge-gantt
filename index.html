@@ -59,7 +59,7 @@
   .gantt-table { border-collapse: collapse; width: 100%; table-layout: fixed; }
 
   .col-name { position: sticky; left: 0; z-index: 3; background: #fff; width: 150px; min-width: 150px; max-width: 150px; padding: 0 10px; font-size: 12px; border-bottom: 1px solid #eee; border-right: 1px solid #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .col-name.div-header { font-weight: 700; font-size: 13px; color: #111; border-bottom: 1px solid #ccc; background: #e8e8e8; border-top: 3px solid #999; }
+  .col-name.div-header { font-weight: 700; font-size: 13px; color: #111; border-bottom: 1px solid #ccc; background: #e8e8e8; border-top: 3px solid #999; width: auto; min-width: 0; max-width: none; position: static; }
   .gc.div-bg { border-top: 3px solid #999; }
 
   .gantt-table thead th { position: sticky; top: 0; z-index: 5; background: #fff; }
@@ -395,7 +395,7 @@ function render(people) {
   divOrder.forEach(divName => {
     const ppl = divGroups[divName];
     if (!ppl.length) return;
-    t += '<tr><td class="col-name div-header">' + divName + ' (' + ppl.length + ')</td><td class="gc div-bg" colspan="' + N + '"></td></tr>';
+    t += '<tr><td class="col-name div-header" colspan="' + (N + 1) + '">' + divName + ' (' + ppl.length + ')</td></tr>';
     ppl.sort((a, b) => a.name.localeCompare(b.name));
     ppl.forEach(p => { t += '<tr><td class="col-name" title="' + p.name + '">' + p.name + '</td>' + rowCells(p.dates) + '</tr>'; });
   });
