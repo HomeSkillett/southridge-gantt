@@ -6,7 +6,7 @@
 <title>Southridge Demo - Onsite Calendar (Live)</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { height: 100%; overflow: hidden; }
+  html, body { height: 100%; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #333; background: #fff; }
 
   .loading { display: flex; align-items: center; justify-content: center; height: 100vh; flex-direction: column; gap: 12px; color: #888; }
@@ -18,8 +18,8 @@
   .error-view .setup-note { color: #555; margin-top: 16px; padding: 16px; background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 13px; }
   .error-view code { background: #eee; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
 
-  .page { display: flex; flex-direction: column; height: 100vh; }
-  .top-section { flex-shrink: 0; padding: 20px 56px 0 56px; }
+  .page { height: 100vh; overflow: auto; }
+  .top-section { padding: 20px 56px 0 56px; position: sticky; left: 0; background: #fff; z-index: 10; }
   .refresh-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
   .refresh-bar .title { font-size: 16px; font-weight: 700; color: #222; }
   .refresh-bar .meta { font-size: 11px; color: #999; display: flex; gap: 16px; align-items: center; }
@@ -55,7 +55,7 @@
   .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #555; }
   .legend-dot { width: 14px; height: 14px; border-radius: 3px; }
 
-  .gantt-scroll { flex: 1; overflow: auto; padding: 0 56px 56px 56px; }
+  .gantt-scroll { padding: 0 56px 56px 56px; }
   .gantt-table { border-collapse: collapse; width: 100%; table-layout: fixed; }
 
   .col-name { position: sticky; left: 0; z-index: 3; background: #fff; width: 150px; min-width: 150px; max-width: 150px; padding: 0 10px; font-size: 12px; border-bottom: 1px solid #eee; border-right: 1px solid #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -72,7 +72,8 @@
   .th-milestone.pre { color: #5B9E1B; }
   .th-milestone.demo { color: #D32F2F; }
 
-  .gc { padding: 0; border-bottom: 1px solid #f3f3f3; height: 24px; }  .gc-in { position: relative; height: 24px; width: 100%; }
+  .gc { padding: 0; border-bottom: 1px solid #f3f3f3; height: 24px; }
+  .gc-in { position: relative; height: 24px; width: 100%; }
   .gc.we { background: #fafafc; }
   .gc.ms { border-left: 1px dashed #ddd; }
   .gc.div-bg { background: #e8e8e8 !important; border-bottom: 1px solid #ccc; }
@@ -90,7 +91,7 @@
   .gantt-table tbody tr:hover .col-name { background: #f0f7ff; }
   .gantt-table tbody tr:hover .gc.we { background: #e8f0fa; }
 
-  @media print { .page { height: auto; overflow: visible; } .gantt-scroll { overflow: visible; } }
+  @media print { .page { height: auto; overflow: visible; } }
 </style>
 </head>
 <body>
@@ -188,12 +189,12 @@ function fmtDate(ds) { const d = new Date(ds + 'T12:00:00'); return MN[d.getMont
 function setStatus(msg) { document.getElementById('loadStatus').textContent = msg; }
 
 function showError(msg, detail) {
-  let html = '<div class="error-view"><strong>Error:</strong> ' + msg;
-  if (detail) html += '<pre>' + String(detail).slice(0, 1500).replace(/</g, '&lt;') + '</pre>';
+  let html = '<div class="error-view"><strong>Error:<\/strong> ' + msg;
+  if (detail) html += '<pre>' + String(detail).slice(0, 1500).replace(/</g, '&lt;') + '<\/pre>';
   if (SMARTSHEET_TOKEN === 'YOUR_TOKEN_HERE') {
-    html += '<div class="setup-note"><strong>Setup required:</strong> Open this HTML file in a text editor and replace <code>YOUR_TOKEN_HERE</code> on the line that says <code>const SMARTSHEET_TOKEN</code> with your Smartsheet API access token.<br><br>To get a token: Smartsheet > Account > Personal Settings > API Access > Generate New Access Token</div>';
+    html += '<div class="setup-note"><strong>Setup required:<\/strong> Open this HTML file in a text editor and replace <code>YOUR_TOKEN_HERE<\/code> on the line that says <code>const SMARTSHEET_TOKEN<\/code> with your Smartsheet API access token.<br><br>To get a token: Smartsheet > Account > Personal Settings > API Access > Generate New Access Token<\/div>';
   }
-  html += '</div>';
+  html += '<\/div>';
   document.getElementById('loadingView').innerHTML = html;
 }
 
@@ -236,7 +237,7 @@ async function fetchSheet() {
       const name = cells['Name'];
       if (!name || name.trim() === '') return;
       const nameUp = name.trim().toUpperCase();
-      if (nameUp === 'NEW HIRE' || nameUp === 'ADT/AWT' || nameUp === 'WHEEL LOADER') return;
+      if (nameUp === 'NEW HIRE' || nameUp === 'ADT\/AWT' || nameUp === 'WHEEL LOADER') return;
       const divRaw = cells['ASI Division'];
       const div = normDiv(divRaw);
       if (!div) return;
@@ -300,10 +301,10 @@ function render(people) {
 
   // Stats
   document.getElementById('statsArea').innerHTML =
-    '<div class="stat-card"><div class="label">People</div><div class="value">' + uniqueNames.size + '</div></div>' +
-    '<div class="stat-card"><div class="label">Date span</div><div class="value">' + fmtDate(minDate) + ' - ' + fmtDate(maxDate) + '</div></div>' +
-    '<div class="stat-card"><div class="label">Dry runs</div><div class="value">Jul 1st, 6th, and 8th</div></div>' +
-    '<div class="stat-card"><div class="label">Demo day</div><div class="value">Jul 10</div></div>';
+    '<div class="stat-card"><div class="label">People<\/div><div class="value">' + uniqueNames.size + '<\/div><\/div>' +
+    '<div class="stat-card"><div class="label">Date span<\/div><div class="value">' + fmtDate(minDate) + ' - ' + fmtDate(maxDate) + '<\/div><\/div>' +
+    '<div class="stat-card"><div class="label">Dry runs<\/div><div class="value">Jul 1st, 6th, and 8th<\/div><\/div>' +
+    '<div class="stat-card"><div class="label">Demo day<\/div><div class="value">Jul 10<\/div><\/div>';
 
   // Last updated timestamp
   const now = new Date();
@@ -312,9 +313,9 @@ function render(people) {
   // Bar chart
   const maxY = Math.ceil(peakCount / 5) * 5 + 5;
   let ch = '<div class="chart-wrap"><div class="y-axis">';
-  for (let v = 0; v <= maxY; v += 5) { const pct = ((maxY - v) / maxY) * 100; ch += '<span class="y-label" style="top:' + pct + '%">' + v + '</span>'; }
-  ch += '</div>';
-  for (let v = 0; v <= maxY; v += 5) { const pct = ((maxY - v) / maxY) * 100; ch += '<div class="y-grid" style="top:' + pct + '%"></div>'; }
+  for (let v = 0; v <= maxY; v += 5) { const pct = ((maxY - v) / maxY) * 100; ch += '<span class="y-label" style="top:' + pct + '%">' + v + '<\/span>'; }
+  ch += '<\/div>';
+  for (let v = 0; v <= maxY; v += 5) { const pct = ((maxY - v) / maxY) * 100; ch += '<div class="y-grid" style="top:' + pct + '%"><\/div>'; }
   ch += '<div class="chart-bars">';
   dateStrs.forEach(ds => {
     const c = dailyCounts[ds] || 0;
@@ -322,19 +323,19 @@ function render(people) {
     const col = barColor(ds);
     const mt = msMap[ds];
     const typeLabel = mt === 'dry-run' ? 'Dry run' : mt === 'pre-demo' ? 'Pre-demo prep' : mt === 'demo-day' ? 'Demo day' : 'People on-site';
-    ch += '<div class="chart-col"><div class="bar" style="height:' + pct + '%;background:' + col + '"></div>';
-    ch += '<div class="chart-tooltip"><div class="tt-date">' + fmtDate(ds) + '</div><span class="tt-dot" style="background:' + col + '"></span>' + typeLabel + ': ' + c + '</div></div>';
+    ch += '<div class="chart-col"><div class="bar" style="height:' + pct + '%;background:' + col + '"><\/div>';
+    ch += '<div class="chart-tooltip"><div class="tt-date">' + fmtDate(ds) + '<\/div><span class="tt-dot" style="background:' + col + '"><\/span>' + typeLabel + ': ' + c + '<\/div><\/div>';
   });
-  ch += '</div></div>';
+  ch += '<\/div><\/div>';
   ch += '<div class="x-axis">';
   dateStrs.forEach((ds, i) => {
     const d = dates[i]; const day = d.getDate();
     let label = '';
     if (day === 1) label = MN[d.getMonth()] + '<br>' + day;
     else if (i % 2 === 0) label = '' + day;
-    ch += '<div class="x-label">' + label + '</div>';
+    ch += '<div class="x-label">' + label + '<\/div>';
   });
-  ch += '</div>';
+  ch += '<\/div>';
   document.getElementById('chartArea').innerHTML = ch;
 
   // Gantt table
@@ -347,19 +348,19 @@ function render(people) {
 
   let t = '<colgroup><col style="width:150px;min-width:150px;">';
   for (let i = 0; i < N; i++) t += '<col>';
-  t += '</colgroup><thead>';
-  t += '<tr><th class="col-name" rowspan="3" style="border-bottom:2px solid #ddd;"></th>';
-  mSpans.forEach(ms => t += '<th class="th-month" colspan="' + ms.n + '">' + ms.l + '</th>');
-  t += '</tr><tr>';
-  dates.forEach(d => { const we = d.getDay() === 0 || d.getDay() === 6; t += '<th class="th-day' + (we ? ' we' : '') + '">' + d.getDate() + '</th>'; });
-  t += '</tr><tr>';
+  t += '<\/colgroup><thead>';
+  t += '<tr><th class="col-name" rowspan="3" style="border-bottom:2px solid #ddd;"><\/th>';
+  mSpans.forEach(ms => t += '<th class="th-month" colspan="' + ms.n + '">' + ms.l + '<\/th>');
+  t += '<\/tr><tr>';
+  dates.forEach(d => { const we = d.getDay() === 0 || d.getDay() === 6; t += '<th class="th-day' + (we ? ' we' : '') + '">' + d.getDate() + '<\/th>'; });
+  t += '<\/tr><tr>';
   dateStrs.forEach(ds => {
     const ml = msLabels[ds]; const mt = msMap[ds];
     let cls = 'th-milestone';
     if (mt === 'dry-run') cls += ' dry'; else if (mt === 'pre-demo') cls += ' pre'; else if (mt === 'demo-day') cls += ' demo';
-    t += '<th class="' + cls + '">' + (ml || '') + '</th>';
+    t += '<th class="' + cls + '">' + (ml || '') + '<\/th>';
   });
-  t += '</tr></thead><tbody>';
+  t += '<\/tr><\/thead><tbody>';
 
   function rowCells(dateRanges) {
     const active = new Set();
@@ -386,20 +387,20 @@ function render(people) {
         if (pos[i] === 'start') shape = ' r-start';
         else if (pos[i] === 'end') shape = ' r-end';
         else if (pos[i] === 'single') shape = ' r-single';
-        inner = '<div class="gc-in"><div class="gb ' + colorCls + shape + '"></div></div>';
+        inner = '<div class="gc-in"><div class="gb ' + colorCls + shape + '"><\/div><\/div>';
       }
-      return '<td class="' + cls + '">' + inner + '</td>';
+      return '<td class="' + cls + '">' + inner + '<\/td>';
     }).join('');
   }
 
   divOrder.forEach(divName => {
     const ppl = divGroups[divName];
     if (!ppl.length) return;
-    t += '<tr><td class="col-name div-header" colspan="' + (N + 1) + '">' + divName + ' (' + ppl.length + ')</td></tr>';
+    t += '<tr><td class="col-name div-header" colspan="' + (N + 1) + '">' + divName + ' (' + ppl.length + ')<\/td><\/tr>';
     ppl.sort((a, b) => a.name.localeCompare(b.name));
-    ppl.forEach(p => { t += '<tr><td class="col-name" title="' + p.name + '">' + p.name + '</td>' + rowCells(p.dates) + '</tr>'; });
+    ppl.forEach(p => { t += '<tr><td class="col-name" title="' + p.name + '">' + p.name + '<\/td>' + rowCells(p.dates) + '<\/tr>'; });
   });
-  t += '</tbody>';
+  t += '<\/tbody>';
   document.getElementById('ganttTable').innerHTML = t;
 
   document.getElementById('loadingView').style.display = 'none';
