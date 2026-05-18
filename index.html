@@ -392,12 +392,10 @@ function render(people) {
     }).join('');
   }
 
-  function divRow() { return dateStrs.map(() => '<td class="gc div-bg"></td>').join(''); }
-
   divOrder.forEach(divName => {
     const ppl = divGroups[divName];
     if (!ppl.length) return;
-    t += '<tr><td class="col-name div-header">' + divName + ' (' + ppl.length + ')</td>' + divRow() + '</tr>';
+    t += '<tr><td class="col-name div-header">' + divName + ' (' + ppl.length + ')</td><td class="gc div-bg" colspan="' + N + '"></td></tr>';
     ppl.sort((a, b) => a.name.localeCompare(b.name));
     ppl.forEach(p => { t += '<tr><td class="col-name" title="' + p.name + '">' + p.name + '</td>' + rowCells(p.dates) + '</tr>'; });
   });
