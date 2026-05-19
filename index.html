@@ -25,7 +25,7 @@
   .refresh-bar .title { font-size: 16px; font-weight: 700; color: #222; }
   .refresh-bar .meta { font-size: 11px; color: #999; display: flex; gap: 16px; align-items: center; }
   .refresh-btn { background: #2CA8DC; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500; }
-  .refresh-btn:hover { background: #2597c5; }
+  .refresh-btn:hover { background: #2597c5; }      .pdf-btn { background: #555; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500; margin-right: 8px; }
 
   .stats { display: flex; gap: 16px; margin-bottom: 20px; }
   .stat-card { border: 1px solid #ddd; border-radius: 6px; padding: 12px 18px; flex: 1; }
@@ -92,7 +92,7 @@
   .gantt-table tbody tr:hover .col-name { background: #f0f7ff; }
   .gantt-table tbody tr:hover .gc.we { background: #e8f0fa; }
 
-  @media print { .page { height: auto; overflow: visible; } }
+  @media print { @page { size: landscape; margin: 0.5cm; } .page { height: auto; overflow: visible; } .top-section { position: relative; } .refresh-bar .meta, .refresh-btn, .pdf-btn { display: none; } .gantt-scroll { overflow: visible; } .gantt-table { font-size: 11px; } }
 </style>
 </head>
 <body>
@@ -110,7 +110,7 @@
     <span class="title">Southridge Demo - Onsite Calendar</span>
     <span class="meta">
       <span id="lastUpdated"></span>
-      <button class="refresh-btn" onclick="location.reload()">Refresh</button>
+      <button class="pdf-btn" onclick="window.print()">Download PDF</button><button class="refresh-btn" onclick="location.reload()">Refresh</button>
     </span>
   </div>
   <div class="stats" id="statsArea"></div>
