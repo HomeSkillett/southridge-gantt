@@ -238,7 +238,7 @@ async function fetchSheet() {
       const name = cells['Name'];
       if (!name || name.trim() === '') return;
       const nameUp = name.trim().toUpperCase();
-      if (nameUp === 'NEW HIRE' || nameUp === 'ADT/AWT' || nameUp === 'WHEEL LOADER') return;
+      if (nameUp === 'ADT/AWT' || nameUp === 'WHEEL LOADER') return;
       const divRaw = cells['ASI Division'];
       const div = normDiv(divRaw);
       if (!div) return;
