@@ -557,7 +557,7 @@ function renderGantt(people) {
 // ════════════════════════════════════════════
 function renderDashboard(people) {
   const skip = n => ['ADT/AWT','Wheel Loader','Nathan Yost'].includes(n);
-  const valid = people.filter(p => !skip(p.name));
+  const valid = people.filter(p => !skip(p.name) && p.div !== null);
 
   const confirmed = valid.filter(p=>p.status==='Confirmed').length;
   const tentative = valid.filter(p=>p.status==='Tentative').length;
