@@ -557,7 +557,10 @@ function renderGantt(people) {
 // ════════════════════════════════════════════
 function renderDashboard(people) {
   const skip = n => ['ADT/AWT','Wheel Loader','Nathan Yost'].includes(n);
-  const valid = people.filter(p => !skip(p.name) && p.div !== null);
+  const allValid = people.filter(p => !skip(p.name) && p.div !== null);
+  const nameMap = {};
+  allValid.forEach(p => { if (!nameMap[p.name] || p.dates.length > nameMap[p.name].dates.length) nameMap[p.name] = p; });
+  const valid = Object.values(nameMap);
 
   const confirmed = valid.filter(p=>p.status==='Confirmed').length;
   const tentative = valid.filter(p=>p.status==='Tentative').length;
