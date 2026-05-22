@@ -475,11 +475,11 @@ function renderGantt(people) {
     '<div class="stat-card"><div class="label">Date span</div><div class="value">'+fmtDate(minDate)+' - '+fmtDate(maxDate)+'</div></div>'+
     '<div class="stat-card"><div class="label">Dry runs</div><div class="value">Jul 1st, 6th, and 8th</div></div>'+
     '<div class="stat-card"><div class="label">Demo day</div><div class="value">Jul 10</div></div>';
-  const maxY=Math.ceil(peakCount/5)*5+5;
+  const maxY=Math.ceil(peakCount/10)*10+10;
   let ch='<div class="chart-wrap"><div class="y-axis">';
-  for(let v=0;v<=maxY;v+=5){const pct=((maxY-v)/maxY)*100;ch+='<span class="y-label" style="top:'+pct+'%">'+v+'</span>';}
+  for(let v=0;v<=maxY;v+=10){const pct=((maxY-v)/maxY)*100;ch+='<span class="y-label" style="top:'+pct+'%">'+v+'</span>';}
   ch+='</div>';
-  for(let v=0;v<=maxY;v+=5){const pct=((maxY-v)/maxY)*100;ch+='<div class="y-grid" style="top:'+pct+'%"></div>';}
+  for(let v=0;v<=maxY;v+=10){const pct=((maxY-v)/maxY)*100;ch+='<div class="y-grid" style="top:'+pct+'%"></div>';}
   ch+='<div class="chart-bars">';
   dateStrs.forEach(ds=>{
     const c=dailyCounts[ds]||0,pct=(c/maxY)*100,col=barColor(ds),mt=msMap[ds];
