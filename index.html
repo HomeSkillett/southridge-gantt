@@ -18,7 +18,7 @@ body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'He
 .error-view pre { background: #f5f5f5; padding: 12px; border-radius: 4px; font-size: 11px; margin-top: 12px; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow: auto; }
 
 /* ── Tab nav ── */
-.tab-nav { display: flex; gap: 0; border-bottom: 2px solid #1F3864; background: #fff; padding: 0 56px; position: sticky; top: 0; z-index: 20; }
+.tab-nav { display: flex; gap: 0; border-bottom: 2px solid #1F3864; background: #fff; padding: 0 56px; postion: sticky; top: 0; z-index: 20; }
 .tab-btn { padding: 10px 24px; font-size: 13px; font-weight: 500; color: #666; background: none; border: none; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
 .tab-btn:hover { color: #1F3864; }
 .tab-btn.active { color: #1F3864; border-bottom-color: #1F3864; font-weight: 700; }
@@ -79,6 +79,13 @@ body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'He
 .gc-in { position: relative; height: 24px; width: 100%; }
 .gc.we { background: #fafafc; }
 .gc.ms { border-left: 1px dashed #ddd; }
+/* Today line */
+.th-day.today { background: #E74C3C; color: #fff; font-weight: 700; }
+.th-milestone.today { border-left: 2px solid #E74C3C; }
+.gc.today { position: relative; }
+.gc.today::after { content: ''; position: absolute; left: -1px; top: 0; bottom: 0; width: 2px; background: #E74C3C; z-index: 2; pointer-events: none; }
+.chart-col.chart-today { position: relative; }
+.chart-col.chart-today::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: #E74C3C; z-index: 2; pointer-events: none; }
 .gc.div-bg { background: #e8e8e8 !important; border-bottom: 1px solid #ccc; }
 .gb { position: absolute; top: 4px; bottom: 4px; left: 0; right: 0; }
 .gb.onsite { background: #2CA8DC; }
@@ -223,6 +230,7 @@ body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'He
           <div class="legend-item"><div class="legend-dot" style="background:#F5A623"></div>Dry run</div>
           <div class="legend-item"><div class="legend-dot" style="background:#7ED321"></div>Pre-demo prep</div>
           <div class="legend-item"><div class="legend-dot" style="background:#E74C3C"></div>Demo day</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#E74C3C;border-radius:0;width:3px;"></div>Today</div>
         </div>
       </div>
       <div class="gantt-scroll">
@@ -454,6 +462,7 @@ function renderAll(people) {
 // GANTT (original logic preserved)
 // ════════════════════════════════════════════
 function renderGantt(people) {
+const todayStr = new Date().toISOString().slice(0,10);
   let minDate='9999-99-99', maxDate='0000-00-00';
   people.forEach(p => p.dates.forEach(([s,e]) => { if(s<minDate)minDate=s; if(e>maxDate)maxDate=e; }));
   if (minDate==='9999-99-99') { minDate='2026-06-01'; maxDate='2026-07-11'; }
@@ -483,8 +492,9 @@ function renderGantt(people) {
   ch+='<div class="chart-bars">';
   dateStrs.forEach(ds=>{
     const c=dailyCounts[ds]||0,pct=(c/maxY)*100,col=barColor(ds),mt=msMap[ds];
+    const isToday=ds===todayStr;
     const typeLabel=mt==='dry-run'?'Dry run':mt==='pre-demo'?'Pre-demo prep':mt==='demo-day'?'Demo day':'People on-site';
-    ch+='<div class="chart-col"><div class="bar" style="height:'+pct+'%;background:'+col+'"></div>';
+    ch+='<div class="chart-col'+(isToday?' chart-today':'')+'"><div class="bar" style="height:'+pct+'%;background:'+col+'"></div>';
     ch+='<div class="chart-tooltip"><div class="tt-date">'+fmtDate(ds)+'</div><span class="tt-dot" style="background:'+col+'"></span>'+typeLabel+': '+c+'</div></div>';
   });
   ch+='</div></div><div class="x-axis">';
@@ -508,9 +518,9 @@ function renderGantt(people) {
   t+='<tr><th class="col-name" rowspan="3" style="border-bottom:2px solid #ddd;"></th>';
   mSpans.forEach(ms=>t+='<th class="th-month" colspan="'+ms.n+'">'+ms.l+'</th>');
   t+='</tr><tr>';
-  dates.forEach(d=>{const we=d.getDay()===0||d.getDay()===6;t+='<th class="th-day'+(we?' we':'')+'">'+d.getDate()+'</th>';});
+  dates.forEach((d,i)=>{const we=d.getDay()===0||d.getDay()===6;const isToday=dateStrs[i]===todayStr;t+='<th class="th-day'+(we?' we':'')+(isToday?' today':'')+'">'+d.getDate()+'</th>';});
   t+='</tr><tr>';
-  dateStrs.forEach(ds=>{const ml=msLabels[ds],mt=msMap[ds];let cls='th-milestone';if(mt==='dry-run')cls+=' dry';else if(mt==='pre-demo')cls+=' pre';else if(mt==='demo-day')cls+=' demo';t+='<th class="'+cls+'">'+(ml||'')+'</th>';});
+  dateStrs.forEach(ds=>{const ml=msLabels[ds],mt=msMap[ds];let cls='th-milestone';if(mt==='dry-run')cls+=' dry';else if(mt==='pre-demo')cls+=' pre';else if(mt==='demo-day')cls+=' demo';if(ds===todayStr)cls+=' today';t+='<th class="'+cls+'">' +(ml||'')+'</th>';});
   t+='</tr></thead><tbody>';
   function rowCells(dateRanges){
     const active=new Set();
@@ -521,8 +531,8 @@ function renderGantt(people) {
     const pos={};
     ranges.forEach(([s,e])=>{for(let i=s;i<=e;i++){if(s===e)pos[i]='single';else if(i===s)pos[i]='start';else if(i===e)pos[i]='end';else pos[i]='mid';}});
     return dateStrs.map((ds,i)=>{
-      const d=dates[i],we=d.getDay()===0||d.getDay()===6,isMs=!!msMap[ds];
-      let cls='gc';if(we)cls+=' we';if(isMs)cls+=' ms';
+      const d=dates[i],we=d.getDay()===0||d.getDay()===6,isMs=!!msMap[ds],isToday=ds===todayStr;
+      let cls='gc';if(we)cls+=' we';if(isMs)cls+=' ms';if(isToday)cls+=' today';
       let inner='';
       if(pos[i]!==undefined){
         let colorCls='onsite';
