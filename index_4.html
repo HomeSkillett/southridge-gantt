@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Southridge Demo - Onsite Calendar (Live)</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; }
+body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #333; background: #fff; }
+.loading { display: flex; align-items: center; justify-content: center; height: 100vh; flex-direction: column; gap: 12px; color: #888; }
+.spinner { width: 32px; height: 32px; border: 3px solid #e0e0e0; border-top-color: #2CA8DC; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.load-status { font-size: 12px; color: #aaa; }
+.error-view { color: #D32F2F; padding: 32px; font-size: 14px; line-height: 1.6; }
+.error-view pre { background: #f5f5f5; padding: 12px; border-radius: 4px; font-size: 11px; margin-top: 12px; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow: auto; }
+/* ── Tab nav ── */
+.tab-nav { display: flex; gap: 0; border-bottom: 2px solid #1F3864; background: #fff; padding: 0 56px; postion: sticky; top: 0; z-index: 20; }
+.tab-btn { padding: 10px 24px; font-size: 13px; font-weight: 500; color: #666; background: none; border: none; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
+.tab-btn:hover { color: #1F3864; }
+.tab-btn.active { color: #1F3864; border-bottom-color: #1F3864; font-weight: 700; }
+/* ── Shared page wrapper ── */
+.tab-panel { display: none; }
+.tab-panel.active { display: flex; flex-direction: column; height: calc(100vh - 44px); }
+/* ══════════════════════════════════════════
+   GANTT TAB (original styles preserved)
+══════════════════════════════════════════ */
+.page { flex: 1; overflow: auto; }
+.top-section { padding: 20px 56px 0 56px; position: sticky; left: 0; background: #fff; z-index: 10; }
+.refresh-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.refresh-bar .title { font-size: 16px; font-weight: 700; color: #222; }
+.refresh-bar .meta { font-size: 11px; color: #999; display: flex; gap: 16px; align-items: center; }
+.refresh-btn { background: #2CA8DC; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500; }
+.refresh-btn:hover { background: #2597c5; }
+.pdf-btn { background: #555; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500; margin-right: 8px; }
+.stats { display: flex; gap: 16px; margin-bottom: 20px; }
+.stat-card { border: 1px solid #ddd; border-radius: 6px; padding: 12px 18px; flex: 1; }
+.stat-card .label { font-size: 12px; color: #888; margin-bottom: 2px; }
+.stat-card .value { font-size: 22px; font-weight: 700; color: #222; line-height: 1.2; }
+.chart-area { position: relative; margin-bottom: 6px; }
+.chart-wrap { position: relative; height: 160px; padding-left: 56px; }
+.chart-bars { display: flex; align-items: flex-end; height: 100%; gap: 2px; }
+.chart-col { flex: 1; position: relative; cursor: pointer; height: 100%; display: flex; align-items: flex-end; }
+.chart-col .bar { width: 100%; border-radius: 2px 2px 0 0; min-height: 1px; }
+.chart-col:hover .bar { filter: brightness(0.85); }
+.chart-tooltip { display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 6px 10px; border-radius: 5px; font-size: 11px; white-space: nowrap; z-index: 100; pointer-events: none; margin-bottom: 8px; }
+.chart-tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: #333; }
+.chart-col:hover .chart-tooltip { display: block; }
+.tt-date { font-weight: 600; margin-bottom: 2px; }
+.tt-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+.y-axis { position: absolute; left: 0; top: 0; bottom: 0; width: 26px; }
+.y-label { position: absolute; right: 4px; font-size: 10px; color: #999; transform: translateY(-50%); }
+.y-grid { position: absolute; left: 28px; right: 0; border-top: 1px solid #f0f0f0; }
+.x-axis { display: flex; gap: 2px; padding-left: 56px; border-top: 1px solid #ddd; margin-bottom: 8px; }
+.x-label { flex: 1; text-align: center; font-size: 9px; color: #999; padding-top: 4px; line-height: 1.2; }
+.legend { display: flex; gap: 20px; margin: 10px 0 16px 0; align-items: center; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #555; }
+.legend-dot { width: 14px; height: 14px; border-radius: 3px; }
+.gantt-scroll { padding: 0 56px 56px 56px; }
+.gantt-table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+.col-name { position: sticky; left: 0; z-index: 3; background: #fff; width: 150px; min-width: 150px; max-width: 150px; padding: 0 10px; font-size: 12px; border-bottom: 1px solid #eee; border-right: 1px solid #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.col-name.div-header { font-weight: 700; font-size: 13px; color: #111; border-bottom: 1px solid #ccc; background: #e8e8e8; border-top: 3px solid #999; width: auto; min-width: 0; max-width: none; position: static; }
+.gc.div-bg { border-top: 3px solid #999; }
+.gantt-table thead th { position: sticky; z-index: 5; background: #fff; }
+.gantt-table thead th.col-name { z-index: 6; top: 0; }
+.th-month { text-align: left; font-size: 11px; font-weight: 600; color: #555; padding: 4px 4px 2px; border-bottom: 1px solid #ddd; top: 0; }
+.th-day { text-align: center; font-size: 10px; color: #777; padding: 2px 0; border-bottom: 1px solid #ddd; font-weight: 500; top: 22px; }
+.th-day.we { color: #ccc; background: #fafafa; }
+.th-milestone { text-align: center; font-size: 8px; font-weight: 600; padding: 1px 0 3px; border-bottom: 2px solid #ddd; height: 16px; white-space: nowrap; overflow: hidden; top: 42px; }
+.th-milestone.dry { color: #E8880C; }
+.th-milestone.pre { color: #5B9E1B; }
+.th-milestone.demo { color: #D32F2F; }
+.gc { padding: 0; border-bottom: 1px solid #f3f3f3; height: 24px; }
+.gc-in { position: relative; height: 24px; width: 100%; }
+.gc.we { background: #fafafc; }
+.gc.ms { border-left: 1px dashed #ddd; }
+/* Today line */
+.th-day.today { background: #E74C3C; color: #fff; font-weight: 700; }
+.th-milestone.today { border-left: 2px solid #E74C3C; }
+.gc.today { position: relative; }
+.gc.today::after { content: ''; position: absolute; left: -1px; top: 0; bottom: 0; width: 2px; background: #E74C3C; z-index: 2; pointer-events: none; }
+.chart-col.chart-today { position: relative; }
+.chart-col.chart-today::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: #E74C3C; z-index: 2; pointer-events: none; }
+.gc.div-bg { background: #e8e8e8 !important; border-bottom: 1px solid #ccc; }
+.gb { position: absolute; top: 4px; bottom: 4px; left: 0; right: 0; }
+.gb.onsite { background: #2CA8DC; }
+.gb.dry-run { background: #F5A623; }
+.gb.pre-demo { background: #7ED321; }
+.gb.demo-day { background: #E74C3C; }
+.gb.r-start { left: 2px; border-radius: 3px 0 0 3px; }
+.gb.r-end { right: 2px; border-radius: 0 3px 3px 0; }
+.gb.r-single { left: 2px; right: 2px; border-radius: 3px; }
+.gantt-table tbody tr:hover td { background: #f0f7ff; }
+.gantt-table tbody tr:hover .col-name { background: #f0f7ff; }
+.gantt-table tbody tr:hover .gc.we { background: #e8f0fa; }
+/* ══════════════════════════════════════════
+   DASHBOARD TAB
+══════════════════════════════════════════ */
+.dash-wrap { padding: 24px 48px 48px; overflow: auto; height: calc(100vh - 44px); }
+.dash-title-bar { background: #1F3864; color: #fff; padding: 16px 24px; border-radius: 8px 8px 0 0; margin-bottom: 0; }
+.dash-title-bar h1 { font-size: 20px; font-weight: 700; }
+.dash-title-bar .sub { font-size: 11px; color: #aac4e8; margin-top: 3px; }
+.dash-header { background: #1F3864; padding: 4px 24px 16px; border-radius: 0 0 8px 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+.kpi-row { display: flex; gap: 12px; margin-bottom: 20px; }
+.kpi-card { flex: 1; border-radius: 8px; padding: 16px 14px 12px; color: #fff; text-align: center; }
+.kpi-card .kpi-val { font-size: 30px; font-weight: 700; line-height: 1; }
+.kpi-card .kpi-lbl { font-size: 11px; margin-top: 6px; opacity: 0.9; }
+.kpi-dark { background: #1F3864; }
+.kpi-blue { background: #2E5FA3; }
+.kpi-orange { background: #E8823A; }
+.kpi-grey { background: #7F7F7F; }
+.kpi-teal { background: #2E5FA3; }
+.kpi-green { background: #70AD47; }
+.kpi-red { background: #C00000; }
+.dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+.dash-section { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; }
+.dash-section-full { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; margin-bottom: 20px; }
+.ds-hdr { background: #2E5FA3; color: #fff; padding: 8px 14px; font-size: 12px; font-weight: 700; }
+.ds-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.ds-table th { background: #4472C4; color: #fff; padding: 5px 10px; text-align: left; font-weight: 600; font-size: 11px; }
+.ds-table th.r { text-align: center; }
+.ds-table td { padding: 4px 10px; border-bottom: 1px solid #f0f0f0; }
+.ds-table td.r { text-align: center; }
+.ds-table tr:nth-child(even) td { background: #F2F2F2; }
+.ds-table tr:last-child td { background: #1F3864; color: #fff; font-weight: 700; }
+.ds-table tr:last-child td.r { text-align: center; }
+.week-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+.week-table th { background: #4472C4; color: #fff; padding: 5px 8px; text-align: center; font-weight: 600; white-space: nowrap; }
+.week-table th:first-child { text-align: left; width: 180px; }
+.week-table td { padding: 4px 8px; border-bottom: 1px solid #f0f0f0; text-align: center; }
+.week-table td:first-child { text-align: left; }
+.week-table tr:nth-child(even) td { background: #F2F2F2; }
+.week-table tr.totals-row td { background: #1F3864; color: #fff; font-weight: 700; }
+/* ══════════════════════════════════════════
+   DAILY HEADCOUNT TAB
+══════════════════════════════════════════ */
+.daily-wrap { padding: 24px 48px 48px; overflow: auto; height: calc(100vh - 44px); }
+.daily-title-bar { background: #1F3864; color: #fff; padding: 14px 24px; border-radius: 8px; margin-bottom: 16px; font-size: 18px; font-weight: 700; }
+.daily-controls { display: flex; gap: 24px; align-items: flex-start; margin-bottom: 20px; }
+.date-picker-box { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; min-width: 220px; }
+.date-picker-box .dp-hdr { background: #2E5FA3; color: #fff; padding: 6px 12px; font-size: 12px; font-weight: 700; }
+.date-picker-box .dp-body { padding: 10px 12px; }
+.date-picker-box label { font-size: 11px; color: #666; display: block; margin-bottom: 4px; }
+.date-picker-box input[type=date] { border: 1px solid #ccc; border-radius: 4px; padding: 4px 8px; font-size: 12px; }
+.date-picker-box .dp-count { margin-top: 8px; font-size: 12px; color: #333; }
+.dp-count strong { font-size: 18px; font-weight: 700; color: #1F3864; }
+.legend-box { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; }
+.legend-box .dp-hdr { background: #2E5FA3; color: #fff; padding: 6px 12px; font-size: 12px; font-weight: 700; }
+.legend-box .dp-body { padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
+.leg-item { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; color: #fff; padding: 4px 10px; border-radius: 4px; }
+.leg-hardstop { background: #C00000; }
+.leg-demoweek { background: #E8823A; }
+.leg-demoday { background: #70AD47; }
+.daily-snap-hdr { background: #1F3864; color: #fff; padding: 10px 16px; border-radius: 8px 8px 0 0; }
+.daily-snap-hdr h3 { font-size: 14px; font-weight: 700; }
+.daily-snap-hdr p { font-size: 11px; color: #aac4e8; margin-top: 2px; }
+.daily-table-wrap { border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px; overflow: auto; max-height: calc(100vh - 340px); }
+.daily-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.daily-table thead tr th { position: sticky; top: 0; z-index: 2; background: #4472C4; color: #fff; padding: 5px 8px; text-align: center; font-weight: 600; white-space: nowrap; font-size: 10px; }
+.daily-table thead tr th:first-child { text-align: left; width: 90px; min-width: 90px; }
+.daily-table thead tr th:nth-child(2) { width: 36px; }
+.daily-table tbody td { padding: 3px 8px; border-bottom: 1px solid #f0f0f0; text-align: center; font-size: 10px; }
+.daily-table tbody td:first-child { text-align: left; font-size: 10px; }
+.daily-table tbody td:last-child { font-weight: 700; }
+.daily-table tbody tr.weekend td { color: #999; background: #f8f8f8; }
+.daily-table tbody tr.hard-stop td { background: #C00000; color: #fff; font-weight: 700; }
+.daily-table tbody tr.demo-week td { background: #E8823A; color: #fff; font-weight: 700; }
+.daily-table tbody tr.demo-day td { background: #70AD47; color: #fff; font-weight: 700; }
+.daily-table tbody tr.selected-date td { outline: 2px solid #1F3864; outline-offset: -1px; }
+.daily-table tfoot td { background: #1F3864; color: #fff; font-weight: 700; padding: 5px 8px; text-align: center; font-size: 10px; position: sticky; bottom: 0; }
+.daily-table tfoot td:first-child { text-align: left; }
+.zero-cell { color: #ccc; }
+@media print {
+  @page { size: landscape; margin: 0.5cm; }
+  .tab-nav { display: none; }
+  .tab-panel { display: block !important; }
+  .page { height: auto; overflow: visible; }
+  .top-section { position: relative; }
+  .refresh-bar .meta, .refresh-btn, .pdf-btn { display: none; }
+  .gantt-scroll { overflow: visible; }
+  .gantt-table { font-size: 11px; }
+}
+</style>
+</head>
+<body>
+
+<div id="loadingView" class="loading">
+  <div class="spinner"></div>
+  <div>Loading live data from Smartsheet...</div>
+  <div class="load-status" id="loadStatus"></div>
+</div>
+
+<div id="mainView" style="display:none;">
+
+  <!-- Tab navigation -->
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('gantt')">📅 Onsite Calendar</button>
+    <button class="tab-btn" onclick="switchTab('dashboard')">📊 Dashboard</button>
+    <button class="tab-btn" onclick="switchTab('daily')">📆 Daily Headcount</button>
+    <div style="flex:1"></div>
+    <span style="font-size:11px;color:#999;align-self:center;margin-right:8px;" id="lastUpdatedNav"></span>
+    <button class="refresh-btn" style="margin:6px 0;" onclick="location.reload()">Refresh</button>
+  </div>
+
+  <!-- ── GANTT TAB ── -->
+  <div id="tab-gantt" class="tab-panel active">
+    <div class="page">
+      <div class="top-section">
+        <div class="refresh-bar">
+          <span class="title">Southridge Demo - Onsite Calendar</span>
+          <span class="meta">
+            <span id="lastUpdated"></span>
+            <button class="pdf-btn" onclick="window.print()">Download PDF</button>
+          </span>
+        </div>
+        <div class="stats" id="statsArea"></div>
+        <div class="chart-area" id="chartArea"></div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#2CA8DC"></div>On-site</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#F5A623"></div>Dry run</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#7ED321"></div>Pre-demo prep</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#E74C3C"></div>Demo day</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#E74C3C;border-radius:0;width:3px;"></div>Today</div>
+        </div>
+      </div>
+      <div class="gantt-scroll">
+        <table class="gantt-table" id="ganttTable"></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DASHBOARD TAB ── -->
+  <div id="tab-dashboard" class="tab-panel">
+    <div class="dash-wrap">
+      <div class="dash-title-bar">
+        <h1>Southridge Demo — Personnel Dashboard</h1>
+        <div class="sub">Live summary from the personnel roster</div>
+      </div>
+      <div class="dash-header">
+        <div></div>
+        <div style="font-size:11px;color:#aac4e8;" id="dashLastUpdated"></div>
+      </div>
+      <!-- KPI cards -->
+      <div class="kpi-row" id="kpiRow"></div>
+      <!-- Group + AOZ tables -->
+      <div class="dash-grid">
+        <div class="dash-section">
+          <div class="ds-hdr">Personnel by Group</div>
+          <table class="ds-table" id="groupTable"></table>
+        </div>
+        <div class="dash-section">
+          <div class="ds-hdr">Headcount by AOZ</div>
+          <table class="ds-table" id="aozTable"></table>
+        </div>
+      </div>
+      <!-- Attendance + Top Trips -->
+      <div class="dash-grid">
+        <div class="dash-section">
+          <div class="ds-hdr">Phase Headcount</div>
+          <table class="ds-table" id="attTable"></table>
+        </div>
+        <div class="dash-section">
+          <div class="ds-hdr">Personnel with Most Trips</div>
+          <table class="ds-table" id="tripsTable"></table>
+        </div>
+      </div>
+      <!-- Headcount by Week -->
+      <div class="dash-section-full">
+        <div class="ds-hdr">Headcount by Week</div>
+        <div style="overflow-x:auto;">
+          <table class="week-table" id="weekTable"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DAILY HEADCOUNT TAB ── -->
+  <div id="tab-daily" class="tab-panel">
+    <div class="daily-wrap">
+      <div class="daily-title-bar">Southridge Demo — Daily Headcount</div>
+      <div class="daily-controls">
+        <div class="date-picker-box">
+          <div class="dp-hdr">Date Picker</div>
+          <div class="dp-body">
+            <label>Pick a date:</label>
+            <input type="date" id="datePicker" onchange="updateDatePicker()">
+            <div class="dp-count">People onsite: <strong id="pickerCount">—</strong></div>
+          </div>
+        </div>
+        <div class="legend-box">
+          <div class="dp-hdr">Legend</div>
+          <div class="dp-body">
+            <div class="leg-item leg-hardstop">HARD STOP — Aug 7</div>
+            <div class="leg-item leg-demoweek">Dry Runs (Rehearsal) — Aug 3–7</div>
+            <div class="leg-item leg-demoday">DEMO DAY — Aug 11–13</div>
+          </div>
+        </div>
+      </div>
+      <div class="daily-snap-hdr">
+        <h3>Daily Headcount Snapshot</h3>
+        <p>People onsite per day, by group</p>
+      </div>
+      <div class="daily-table-wrap">
+        <table class="daily-table" id="dailyTable"></table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// CONFIGURATION
+// ═══════════════════════════════════════════════════════════
+const WORKER_URL = 'https://southridge-gantt-proxy.0494.workers.dev';
+// ═══════════════════════════════════════════════════════════
+
+const msMap = {
+  "2026-08-03":"dry-run","2026-08-04":"dry-run","2026-08-05":"dry-run",
+  "2026-08-06":"dry-run","2026-08-07":"dry-run",
+  "2026-08-11":"demo-day","2026-08-12":"demo-day","2026-08-13":"demo-day"
+};
+const msLabels = {
+  "2026-08-03":"Dry run","2026-08-04":"Dry run","2026-08-05":"Dry run",
+  "2026-08-06":"Dry run","2026-08-07":"Dry run",
+  "2026-08-11":"Demo day","2026-08-12":"Demo day","2026-08-13":"Demo day"
+};
+const msColors = {"dry-run":"#F5A623","pre-demo":"#7ED321","demo-day":"#E74C3C"};
+const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const GROUPS = [
+  "Autonomous Services","ASI Leadership","AOZ Leads",
+  "Clearing & Grubbing \u2014 AOZ 1","Mass Grading \u2014 AOZ 2","Haulage \u2014 AOZ 3",
+  "Material Handling \u2014 AOZ 4","AG (ASI)","C4","Mobius Platform",
+  "Yard Truck","V&V"
+];
+const GROUPS_DISPLAY = [
+  "Autonomous Services","ASI Leadership","AOZ Leads",
+  "Clearing & Grubbing — AOZ 1","Mass Grading — AOZ 2","Haulage — AOZ 3",
+  "Material Handling — AOZ 4","AG (ASI)","C4","Mobius Platform",
+  "Yard Truck - AOZ 4","V&V"
+];
+const DIV_MAP = {
+  "autonomous services":"Autonomous Services",
+  "asi leadership":"ASI Leadership",
+  "c4":"C4",
+  "ag (asi)":"AG (ASI)",
+  "v&v":"V&V",
+  "aoz leads":"AOZ Leads",
+  "mobius platform":"Mobius Platform",
+  "mass grading \u2014 aoz 2":"Mass Grading \u2014 AOZ 2",
+  "clearing & grubbing \u2014 aoz 1":"Clearing & Grubbing \u2014 AOZ 1",
+  "haulage \u2014 aoz 3":"Haulage \u2014 AOZ 3",
+  "material handling \u2014 aoz 4":"Material Handling \u2014 AOZ 4",
+  "yard truck":"Yard Truck"
+};
+const divOrder = ["Autonomous Services","AOZ Leads","ASI Leadership","Mobius Platform","C4","AG (ASI)","V&V","Clearing & Grubbing \u2014 AOZ 1","Mass Grading \u2014 AOZ 2","Haulage \u2014 AOZ 3","Material Handling \u2014 AOZ 4","Yard Truck"];
+
+function stripDashes(s) {
+  return s.replace(/[\u2014\u2013\u2012\u2011\u2010\-]/g,'').replace(/\s+/g,' ').trim();
+}
+function normDiv(raw) {
+  if (!raw) return null;
+  const norm = stripDashes(raw.trim()).toLowerCase();
+  if (DIV_MAP[norm]) return DIV_MAP[norm];
+  for (const [k,v] of Object.entries(DIV_MAP)) {
+    if (norm === k || norm.includes(k) || k.includes(norm)) return v;
+  }
+  const found = divOrder.find(d => stripDashes(d).toLowerCase() === norm);
+  if (found) return found;
+  return null;
+}
+function barColor(ds) { return msColors[msMap[ds]] || '#2CA8DC'; }
+function fmtDate(ds) { const d = new Date(ds+'T12:00:00'); return MN[d.getMonth()]+' '+d.getDate(); }
+function setStatus(msg) { document.getElementById('loadStatus').textContent = msg; }
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    const tabs = ['gantt','dashboard','daily'];
+    b.classList.toggle('active', tabs[i] === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+// ── Global data store ──
+let G = null;
+
+async function fetchSheet() {
+  try {
+    setStatus('Fetching sheet data...');
+    const resp = await fetch(WORKER_URL + '/api/sheet');
+    if (!resp.ok) { const t = await resp.text(); showError('API '+resp.status, t); return; }
+    setStatus('Parsing...');
+    const sheet = await resp.json();
+    const colMap = {};
+    sheet.columns.forEach(c => { colMap[c.id] = c.title; });
+    const people = [];
+    sheet.rows.forEach(row => {
+      const cells = {};
+      row.cells.forEach(cell => { const cn = colMap[cell.columnId]; if (cn) cells[cn] = cell.value || cell.displayValue || null; });
+      const name = cells['Name'];
+      if (!name || !name.trim()) return;
+      const nu = name.trim().toUpperCase();
+      if (nu==='ADT/AWT'||nu==='WHEEL LOADER') return;
+      const divRaw = cells['ASI Division'];
+      const div = normDiv(divRaw);
+      if (!div) return;
+      const datePairs = [];
+      for (let i=1;i<=7;i++) {
+        const arr = cells['Arrival Date '+i], dep = cells['Departure Date '+i];
+        if (arr && dep) {
+          const a=String(arr).slice(0,10), d=String(dep).slice(0,10);
+          if (a.match(/^\d{4}-\d{2}-\d{2}/) && d.match(/^\d{4}-\d{2}-\d{2}/)) datePairs.push([a,d]);
+        }
+      }
+      const ppe = !!(cells['PPE Required']);
+      // Calculate trips and person-days directly from date pairs
+      const trips = datePairs.length;
+      let days = 0;
+      datePairs.forEach(([a,d])=>{
+        const ms = new Date(d+'T12:00:00') - new Date(a+'T12:00:00');
+        days += Math.round(ms/86400000) + 1;
+      });
+      people.push({ name:name.trim(), div, dates:datePairs, ppe, trips, days });
+    });
+    if (!people.length) { showError('0 people found in sheet.'); return; }
+    setStatus('Rendering '+people.length+' entries...');
+    G = people;
+    renderAll(people);
+  } catch(err) { showError(err.message, err.stack); }
+}
+
+function showError(msg, detail) {
+  let h = '<div class="error-view"><strong>Error:</strong> '+msg;
+  if (detail) h += '<pre>'+String(detail).slice(0,1500).replace(/</g,'&lt;')+'</pre>';
+  h += '</div>';
+  document.getElementById('loadingView').innerHTML = h;
+}
+
+function renderAll(people) {
+  const now = new Date();
+  const ts = 'Updated: '+now.toLocaleString();
+  document.getElementById('lastUpdated').textContent = ts;
+  document.getElementById('lastUpdatedNav').textContent = ts;
+  document.getElementById('dashLastUpdated').textContent = ts;
+  renderGantt(people);
+  renderDashboard(people);
+  renderDaily(people);
+  document.getElementById('loadingView').style.display = 'none';
+  document.getElementById('mainView').style.display = 'block';
+}
+
+// ════════════════════════════════════════════
+// GANTT (original logic preserved)
+// ════════════════════════════════════════════
+function renderGantt(people) {
+  const todayStr = new Date().toISOString().slice(0,10);
+  let minDate='9999-99-99', maxDate='0000-00-00';
+  people.forEach(p => p.dates.forEach(([s,e]) => { if(s<minDate)minDate=s; if(e>maxDate)maxDate=e; }));
+  if (minDate==='9999-99-99') { minDate='2026-07-27'; maxDate='2026-08-13'; }
+  // Never start before Jul 27
+  if (minDate < '2026-07-27') minDate = '2026-07-27';
+  const startDate=new Date(minDate+'T12:00:00'), endDate=new Date(maxDate+'T12:00:00');
+  const dates=[], dateStrs=[], dateIdx={};
+  for (let d=new Date(startDate); d<=endDate; d.setDate(d.getDate()+1)) dates.push(new Date(d));
+  dates.forEach((d,i) => { const s=d.toISOString().slice(0,10); dateStrs.push(s); dateIdx[s]=i; });
+  const N=dates.length;
+  const dailyCounts={};
+  dateStrs.forEach(ds => dailyCounts[ds]=0);
+  people.forEach(p => p.dates.forEach(([s,e]) => {
+    const si=dateIdx[s], ei=dateIdx[e];
+    if(si!==undefined&&ei!==undefined) for(let k=si;k<=ei;k++) dailyCounts[dateStrs[k]]++;
+  }));
+  const uniqueNames=new Set(); people.forEach(p=>uniqueNames.add(p.name));
+  const peakCount=Math.max(...Object.values(dailyCounts));
+  document.getElementById('statsArea').innerHTML =
+    '<div class="stat-card"><div class="label">People</div><div class="value">'+uniqueNames.size+'</div></div>'+
+    '<div class="stat-card"><div class="label">Date span</div><div class="value">'+fmtDate(minDate)+' - '+fmtDate(maxDate)+'</div></div>'+
+    '<div class="stat-card"><div class="label">Dry runs</div><div class="value">Aug 3–7</div></div>'+
+    '<div class="stat-card"><div class="label">Demo day</div><div class="value">Aug 11–13</div></div>';
+  const maxY=Math.ceil(peakCount/10)*10+10;
+  let ch='<div class="chart-wrap"><div class="y-axis">';
+  for(let v=0;v<=maxY;v+=10){const pct=((maxY-v)/maxY)*100;ch+='<span class="y-label" style="top:'+pct+'%">'+v+'</span>';}
+  ch+='</div>';
+  for(let v=0;v<=maxY;v+=10){const pct=((maxY-v)/maxY)*100;ch+='<div class="y-grid" style="top:'+pct+'%"></div>';}
+  ch+='<div class="chart-bars">';
+  dateStrs.forEach(ds=>{
+    const c=dailyCounts[ds]||0,pct=(c/maxY)*100,col=barColor(ds),mt=msMap[ds];
+    const isToday=ds===todayStr;
+    const typeLabel=mt==='dry-run'?'Dry run':mt==='pre-demo'?'Pre-demo prep':mt==='demo-day'?'Demo day':'People on-site';
+    ch+='<div class="chart-col'+(isToday?' chart-today':'')+'"><div class="bar" style="height:'+pct+'%;background:'+col+'"></div>';
+    ch+='<div class="chart-tooltip"><div class="tt-date">'+fmtDate(ds)+'</div><span class="tt-dot" style="background:'+col+'"></span>'+typeLabel+': '+c+'</div></div>';
+  });
+  ch+='</div></div><div class="x-axis">';
+  dateStrs.forEach((ds,i)=>{
+    const d=dates[i],day=d.getDate();
+    let label='';
+    if(day===1) label=MN[d.getMonth()]+'<br>'+day;
+    else if(i%2===0) label=''+day;
+    ch+='<div class="x-label">'+label+'</div>';
+  });
+  ch+='</div>';
+  document.getElementById('chartArea').innerHTML=ch;
+  const divGroups={};
+  divOrder.forEach(d=>divGroups[d]=[]);
+  people.forEach(p=>{if(p.div&&divGroups[p.div])divGroups[p.div].push(p);});
+  const mSpans=[];let cm=-1;
+  dates.forEach(d=>{const m=d.getMonth();if(m!==cm){mSpans.push({l:MN[m]+' '+d.getFullYear(),n:1});cm=m;}else mSpans[mSpans.length-1].n++;});
+  let t='<colgroup><col style="width:150px;min-width:150px;">';
+  for(let i=0;i<N;i++)t+='<col>';
+  t+='</colgroup><thead>';
+  t+='<tr><th class="col-name" rowspan="3" style="border-bottom:2px solid #ddd;"></th>';
+  mSpans.forEach(ms=>t+='<th class="th-month" colspan="'+ms.n+'">'+ms.l+'</th>');
+  t+='</tr><tr>';
+  dates.forEach((d,i)=>{const we=d.getDay()===0||d.getDay()===6;const isToday=dateStrs[i]===todayStr;t+='<th class="th-day'+(we?' we':'')+(isToday?' today':'')+'">'+d.getDate()+'</th>';});
+  t+='</tr><tr>';
+  dateStrs.forEach(ds=>{const ml=msLabels[ds],mt=msMap[ds];let cls='th-milestone';if(mt==='dry-run')cls+=' dry';else if(mt==='pre-demo')cls+=' pre';else if(mt==='demo-day')cls+=' demo';if(ds===todayStr)cls+=' today';t+='<th class="'+cls+'">'+(ml||'')+'</th>';});
+  t+='</tr></thead><tbody>';
+  function rowCells(dateRanges){
+    const active=new Set();
+    dateRanges.forEach(([s,e])=>{const si=dateIdx[s],ei=dateIdx[e];if(si!==undefined&&ei!==undefined)for(let k=si;k<=ei;k++)active.add(k);});
+    const ranges=[];let rs=null;
+    for(let i=0;i<N;i++){if(active.has(i)){if(rs===null)rs=i;}else{if(rs!==null){ranges.push([rs,i-1]);rs=null;}}}
+    if(rs!==null)ranges.push([rs,N-1]);
+    const pos={};
+    ranges.forEach(([s,e])=>{for(let i=s;i<=e;i++){if(s===e)pos[i]='single';else if(i===s)pos[i]='start';else if(i===e)pos[i]='end';else pos[i]='mid';}});
+    return dateStrs.map((ds,i)=>{
+      const d=dates[i],we=d.getDay()===0||d.getDay()===6,isMs=!!msMap[ds],isToday=ds===todayStr;
+      let cls='gc';if(we)cls+=' we';if(isMs)cls+=' ms';if(isToday)cls+=' today';
+      let inner='';
+      if(pos[i]!==undefined){
+        let colorCls='onsite';
+        if(msMap[ds]==='dry-run')colorCls='dry-run';
+        else if(msMap[ds]==='pre-demo')colorCls='pre-demo';
+        else if(msMap[ds]==='demo-day')colorCls='demo-day';
+        let shape='';
+        if(pos[i]==='start')shape=' r-start';
+        else if(pos[i]==='end')shape=' r-end';
+        else if(pos[i]==='single')shape=' r-single';
+        inner='<div class="gc-in"><div class="gb '+colorCls+shape+'"></div></div>';
+      }
+      return '<td class="'+cls+'">'+inner+'</td>';
+    }).join('');
+  }
+  divOrder.forEach(divName=>{
+    const ppl=divGroups[divName];
+    if(!ppl.length)return;
+    t+='<tr><td class="col-name div-header" colspan="'+(N+1)+'">'+divName+' ('+ppl.length+')</td></tr>';
+    ppl.sort((a,b)=>a.name.localeCompare(b.name));
+    ppl.forEach(p=>{t+='<tr><td class="col-name" title="'+p.name+'">'+p.name+'</td>'+rowCells(p.dates)+'</tr>';});
+  });
+  t+='</tbody>';
+  document.getElementById('ganttTable').innerHTML=t;
+}
+
+// ════════════════════════════════════════════
+// DASHBOARD
+// ════════════════════════════════════════════
+function renderDashboard(people) {
+  const skip = n => ['ADT/AWT','Wheel Loader','Nathan Yost'].includes(n);
+  // Only count people who have at least one date pair entered (presence = dates)
+  const allValid = people.filter(p => !skip(p.name) && p.div !== null);
+  const nameMap = {};
+  allValid.forEach(p => { if (!nameMap[p.name] || p.dates.length > nameMap[p.name].dates.length) nameMap[p.name] = p; });
+  const valid = Object.values(nameMap);
+  const withDates = valid.filter(p => p.dates.length > 0);
+  const noDates   = valid.filter(p => p.dates.length === 0);
+  const total = valid.length;
+  const personDays = valid.reduce((s,p)=>s+p.days,0);
+  let earliest=null, latest=null;
+  withDates.forEach(p=>p.dates.forEach(([a,d])=>{
+    if(!earliest||a<earliest)earliest=a;
+    if(!latest||d>latest)latest=d;
+  }));
+  // KPI row — date-driven only
+  const kpis = [
+    {val:total,                          lbl:'Total Personnel',    cls:'kpi-dark'},
+    {val:withDates.length,               lbl:'Dates Entered',      cls:'kpi-blue'},
+    {val:noDates.length,                 lbl:'No Dates Yet',       cls:'kpi-orange'},
+    {val:personDays,                     lbl:'Total Person-Days',  cls:'kpi-teal'},
+    {val:earliest?fmtDate(earliest):'—', lbl:'Earliest Arrival',   cls:'kpi-green'},
+    {val:latest?fmtDate(latest):'—',     lbl:'Latest Departure',   cls:'kpi-red'},
+  ];
+  document.getElementById('kpiRow').innerHTML = kpis.map(k=>
+    `<div class="kpi-card ${k.cls}"><div class="kpi-val">${k.val}</div><div class="kpi-lbl">${k.lbl}</div></div>`
+  ).join('');
+  // Headcount by group — total and how many have dates
+  function normGroup(div) {
+    if (!div) return null;
+    const nd = stripDashes(div).toLowerCase();
+    const match = GROUPS.find(g => stripDashes(g).toLowerCase() === nd);
+    return match || div;
+  }
+  function grpCounts(grp) {
+    const m = valid.filter(p=>normGroup(p.div)===grp);
+    return [m.length, m.filter(p=>p.dates.length>0).length];
+  }
+  let gt = '<tr><th>Group</th><th class="r">Total</th><th class="r">Dates Entered</th></tr>';
+  let gtTotal=0, gtDates=0;
+  GROUPS.forEach((g,i)=>{
+    const [tot,dated]=grpCounts(g);
+    gtTotal+=tot; gtDates+=dated;
+    const lbl = GROUPS_DISPLAY[i];
+    gt+=`<tr><td>${lbl}</td><td class="r">${tot||''}</td><td class="r">${dated||''}</td></tr>`;
+  });
+  gt+=`<tr><td>Total</td><td class="r">${gtTotal}</td><td class="r">${gtDates}</td></tr>`;
+  document.getElementById('groupTable').innerHTML=gt;
+  // Headcount by AOZ — total and how many have dates
+  const aozDef = {
+    'AOZ 1': ['Clearing & Grubbing \u2014 AOZ 1'],
+    'AOZ 2': ['Mass Grading \u2014 AOZ 2'],
+    'AOZ 3': ['Haulage \u2014 AOZ 3'],
+    'AOZ 4': ['Material Handling \u2014 AOZ 4','Yard Truck'],
+    'All / All Zones': ['Autonomous Services','ASI Leadership','AOZ Leads','AG (ASI)','C4','Mobius Platform'],
+    'Unassigned': ['V&V'],
+  };
+  function aozCounts(grps) {
+    const m = valid.filter(p=>grps.some(g=>normGroup(p.div)===g));
+    return [m.length, m.filter(p=>p.dates.length>0).length];
+  }
+  let at = '<tr><th>AOZ</th><th class="r">Total</th><th class="r">Dates Entered</th></tr>';
+  let atTotal=0, atDates=0;
+  Object.entries(aozDef).forEach(([label,grps])=>{
+    const [tot,dated]=aozCounts(grps);
+    atTotal+=tot; atDates+=dated;
+    at+=`<tr><td>${label}</td><td class="r">${tot||''}</td><td class="r">${dated||''}</td></tr>`;
+  });
+  at+=`<tr><td>Total</td><td class="r">${atTotal}</td><td class="r">${atDates}</td></tr>`;
+  document.getElementById('aozTable').innerHTML=at;
+  // Phase headcount — derived from date ranges vs milestone windows
+  const PRE_DEPLOY_END = '2026-08-02';
+  const DRY_RUN_START  = '2026-08-03'; const DRY_RUN_END = '2026-08-07';
+  const DEMO_START     = '2026-08-11'; const DEMO_END    = '2026-08-13';
+  function hasOverlap(p, start, end) {
+    return p.dates.some(([a,d])=> a<=end && d>=start);
+  }
+  const preCount  = withDates.filter(p=>hasOverlap(p,'2026-05-18',PRE_DEPLOY_END)).length;
+  const dryCount  = withDates.filter(p=>hasOverlap(p,DRY_RUN_START,DRY_RUN_END)).length;
+  const demoCount = withDates.filter(p=>hasOverlap(p,DEMO_START,DEMO_END)).length;
+  let atr = '<tr><th>Phase</th><th class="r">Personnel</th></tr>';
+  atr+=`<tr><td>Pre-Deployment (through Aug 2)</td><td class="r">${preCount}</td></tr>`;
+  atr+=`<tr><td>Dry Runs — Aug 3–7</td><td class="r">${dryCount}</td></tr>`;
+  atr+=`<tr><td>Demo Days — Aug 11–13</td><td class="r">${demoCount}</td></tr>`;
+  document.getElementById('attTable').innerHTML=atr;
+  // Top trips
+  const topTrips = [...valid].filter(p=>p.trips>=4).sort((a,b)=>b.trips-a.trips||b.days-a.days).slice(0,7);
+  let trt = '<tr><th>Name</th><th>Group</th><th class="r">Trips</th><th class="r">Days Onsite</th></tr>';
+  topTrips.forEach(p=>{
+    const gi = GROUPS.indexOf(normGroup(p.div));
+    const lbl = gi>=0 ? GROUPS_DISPLAY[gi] : p.div;
+    trt+=`<tr><td>${p.name}</td><td>${lbl}</td><td class="r">${p.trips}</td><td class="r">${p.days}</td></tr>`;
+  });
+  document.getElementById('tripsTable').innerHTML=trt;
+  // Headcount by week
+  function onsite(p, d) {
+    return p.dates.some(([a,dep])=>{
+      return a <= d && d <= dep;
+    });
+  }
+  // Generate week starts (Mon) covering the data range
+  const wkStart = new Date('2026-07-27T12:00:00');
+  const weeks = [];
+  for(let i=0;i<4;i++){
+    const ws = new Date(wkStart); ws.setDate(ws.getDate()+i*7);
+    weeks.push(ws.toISOString().slice(0,10));
+  }
+  function weekCount(grp, wsDate) {
+    const members = valid.filter(p=>normGroup(p.div)===grp);
+    return members.filter(p=>{
+      for(let d=0;d<7;d++){
+        const dd = new Date(wsDate+'T12:00:00'); dd.setDate(dd.getDate()+d);
+        const ds = dd.toISOString().slice(0,10);
+        if(p.dates.some(([a,dep])=>a<=ds&&ds<=dep)) return true;
+      }
+      return false;
+    }).length;
+  }
+  let wt = '<tr><th>Group</th>'+weeks.map(w=>`<th>${fmtDate(w)}</th>`).join('')+'</tr>';
+  let totals = new Array(weeks.length).fill(0);
+  GROUPS.forEach((g,gi)=>{
+    const lbl = GROUPS_DISPLAY[gi];
+    const counts = weeks.map(w=>weekCount(g,w));
+    counts.forEach((c,i)=>totals[i]+=c);
+    wt+=`<tr><td>${lbl}</td>${counts.map(c=>`<td>${c||''}</td>`).join('')}</tr>`;
+  });
+  wt+=`<tr class="totals-row"><td>Total</td>${totals.map(c=>`<td>${c}</td>`).join('')}</tr>`;
+  document.getElementById('weekTable').innerHTML=wt;
+}
+
+// ════════════════════════════════════════════
+// DAILY HEADCOUNT
+// ════════════════════════════════════════════
+function onsite(p, ds) {
+  return p.dates.some(([a,dep])=>a<=ds&&ds<=dep);
+}
+
+function renderDaily(people) {
+  const startDate = new Date('2026-07-27T12:00:00');
+  const endDate   = new Date('2026-08-15T12:00:00');
+  const days = [];
+  for(let d=new Date(startDate);d<=endDate;d.setDate(d.getDate()+1)) days.push(d.toISOString().slice(0,10));
+  const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const HARD_STOP  = '2026-08-07';
+  const DEMO_WEEK  = ['2026-08-03','2026-08-04','2026-08-05','2026-08-06','2026-08-07'];
+  const DEMO_DAYS  = ['2026-08-11','2026-08-12','2026-08-13'];
+  // Set default picker to today if in range, else first day
+  const todayStr = new Date().toISOString().slice(0,10);
+  const pickerVal = (todayStr>=days[0]&&todayStr<=days[days.length-1]) ? todayStr : days[0];
+  const picker = document.getElementById('datePicker');
+  picker.min = days[0]; picker.max = days[days.length-1]; picker.value = pickerVal;
+  // Build thead
+  let hdr = '<thead><tr><th>Date</th><th>Day</th>';
+  GROUPS_DISPLAY.forEach(g=>hdr+=`<th>${g}</th>`);
+  hdr+='<th>Daily Total</th></tr></thead>';
+  // Build tbody
+  const personDayTotals = new Array(GROUPS.length).fill(0);
+  let grandTotal = 0;
+  let tbody = '<tbody>';
+  days.forEach(ds=>{
+    const d = new Date(ds+'T12:00:00');
+    const isWeekend  = d.getDay()===0||d.getDay()===6;
+    const isHardStop = ds===HARD_STOP;
+    const isDemoWeek = DEMO_WEEK.includes(ds);
+    const isDemoDay  = DEMO_DAYS.includes(ds);
+    let rowCls = '';
+    if(isDemoDay)       rowCls='demo-day';
+    else if(isDemoWeek) rowCls='demo-week';
+    else if(isHardStop) rowCls='hard-stop';
+    else if(isWeekend)  rowCls='weekend';
+    const counts = GROUPS.map(g=>{
+      const members = people.filter(p=>normDivForDaily(p.div)===g);
+      return members.filter(p=>onsite(p,ds)).length;
+    });
+    const daily = counts.reduce((s,c)=>s+c,0);
+    counts.forEach((c,i)=>personDayTotals[i]+=c);
+    grandTotal+=daily;
+    const dateDisp = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;
+    tbody+=`<tr class="${rowCls}${ds===picker.value?' selected-date':''}">`;
+    tbody+=`<td>${dateDisp}</td><td>${DAY_NAMES[d.getDay()]}</td>`;
+    counts.forEach(c=>tbody+=`<td>${c>0?c:'<span class="zero-cell">—</span>'}</td>`);
+    tbody+=`<td>${daily>0?daily:'<span class="zero-cell">—</span>'}</td>`;
+    tbody+='</tr>';
+  });
+  tbody+='</tbody>';
+  // tfoot
+  let tfoot = '<tfoot><tr><td>Person-Days Total</td><td></td>';
+  personDayTotals.forEach(c=>tfoot+=`<td>${c}</td>`);
+  tfoot+=`<td>${grandTotal}</td></tr></tfoot>`;
+  document.getElementById('dailyTable').innerHTML = hdr+tbody+tfoot;
+  updateDatePicker();
+}
+
+function normDivForDaily(div) {
+  if(!div) return null;
+  const nd = stripDashes(div).toLowerCase();
+  const match = GROUPS.find(g=>stripDashes(g).toLowerCase()===nd);
+  return match || div;
+}
+
+function updateDatePicker() {
+  const ds = document.getElementById('datePicker').value;
+  if (!G || !ds) return;
+  const count = G.filter(p=>onsite(p,ds)).length;
+  document.getElementById('pickerCount').textContent = count;
+  // Highlight selected row
+  document.querySelectorAll('#dailyTable tbody tr').forEach(row=>{
+    const dateCell = row.querySelector('td:first-child');
+    if (!dateCell) return;
+    const d = new Date(ds+'T12:00:00');
+    const match = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;
+    row.classList.toggle('selected-date', dateCell.textContent===match);
+  });
+  // Scroll to selected row
+  const sel = document.querySelector('#dailyTable tbody tr.selected-date');
+  if (sel) sel.scrollIntoView({block:'center',behavior:'smooth'});
+}
+
+fetchSheet();
+</script>
+</body>
+</html>
